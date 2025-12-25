@@ -31,4 +31,4 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["agent*", "logger*"]
+include = ["kai*", "logger*"]
