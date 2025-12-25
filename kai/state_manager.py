@@ -13,8 +13,10 @@ from kai.schemas import (
     ExploitCandidate,
     Fix,
     Invariant,
+    MasterContext,
     Mission,
     Observation,
+    ProtocolManifesto,
     Verdict,
     CampaignBrief,
 )
@@ -79,6 +81,32 @@ class KaiStateManager(ABC):
 
         Args:
             actor_matrix: The actor matrix to save
+
+        Returns:
+            True if successful
+        """
+        pass
+
+    @abstractmethod
+    async def save_protocol_manifesto(self, manifesto: ProtocolManifesto) -> bool:
+        """
+        Save the protocol manifesto.
+
+        Args:
+            manifesto: The protocol manifesto to save
+
+        Returns:
+            True if successful
+        """
+        pass
+
+    @abstractmethod
+    async def save_master_context(self, context: MasterContext) -> bool:
+        """
+        Save the master context.
+
+        Args:
+            context: The master context to save
 
         Returns:
             True if successful

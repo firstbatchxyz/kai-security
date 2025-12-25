@@ -184,6 +184,13 @@ class Dispatcher:
             self.master_context = env_output.master_context
             self.logger.info(f"MasterContext ready: {self.master_context.root_path}")
 
+            # Persist master context
+            await self._persist(
+                self._state_manager.save_master_context(self.master_context)
+                if self._state_manager
+                else None
+            )
+
             # Persist state transition
             await self._persist(
                 self._state_manager.update_state("setup")
@@ -256,6 +263,13 @@ class Dispatcher:
                 self.protocol_manifesto = profiler_output.protocol_manifesto
                 self.logger.info(
                     f"ProtocolManifesto ready: {self.protocol_manifesto.name}"
+                )
+
+                # Persist protocol manifesto
+                await self._persist(
+                    self._state_manager.save_protocol_manifesto(self.protocol_manifesto)
+                    if self._state_manager
+                    else None
                 )
             else:
                 self.logger.warning("Profiler failed, continuing without manifesto")
