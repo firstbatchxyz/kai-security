@@ -365,9 +365,10 @@ class Dispatcher:
                 else None
             )
             await self._persist(
-                self._state_manager.save_missions(planned_missions)
-                if self._state_manager
-                else None
+                self._state_manager.save_missions(
+                    planned_missions,
+                    invariant_id_map=invariant_id_map
+                ) if self._state_manager else None
             )
 
             self.logger.info(
