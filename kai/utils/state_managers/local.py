@@ -112,12 +112,6 @@ class LocalStateManager(KaiStateManager):
     async def save_observations(self, observations: List[Observation]) -> bool:
         return True
 
-    async def save_agent(self, agent_record: AgentRecord) -> bool:
-        return True
-
-    async def update_agent_completed(self, agent_id: str) -> bool:
-        return True
-
     async def save_conversation(
         self,
         agent_id: str,

@@ -177,11 +177,7 @@ class Dispatcher:
                 use_openai=use_openai,
                 repo_path_override=repo_path,
             )
-            ## Agent id will be given dummy / Not important agent for frontend TODO: Implement agent saving more deterministically
-            setup_agent_id=str(ObjectId())
-            await self._persist(self._state_manager.save_agent(agent_record=AgentRecord(agent_id=setup_agent_id, agent_type="setup")))
             env_output = await env_process.run(env_input)
-            await self._persist(self._state_manager.update_agent_completed(agent_id=setup_agent_id))
 
             if not env_output.success or not env_output.master_context:
                 self.logger.error(
@@ -226,8 +222,6 @@ class Dispatcher:
             self.logger.info("Step 3/6: Workspace Validation...")
             from kai.processes.workspace_validation import WorkspaceValidationProcess
             from kai.schemas import WorkspacePreset, WorkspaceValidationInput
-            workspace_validation_agent_id=str(ObjectId())
-            await self._persist(self._state_manager.save_agent(agent_record=AgentRecord(agent_id=workspace_validation_agent_id, agent_type="workspace_validation")))
             ws_output = await WorkspaceValidationProcess(
                 context=self.master_context, workspace_dir=self.config.workspace_dir
             ).run(
@@ -243,7 +237,6 @@ class Dispatcher:
                     timeout_test_s=120,
                 )
             )
-            await self._persist(self._state_manager.update_agent_completed(agent_id=workspace_validation_agent_id))
             if not ws_output.success:
                 self.logger.error(
                     ws_output.error_message or "Workspace validation failed"
@@ -260,8 +253,6 @@ class Dispatcher:
             self.logger.info("Workspace validation passed")
 
             self.logger.info("Step 4/6: Profiler...")
-            profiler_agent_id=str(ObjectId())
-            await self._persist(self._state_manager.save_agent(agent_record=AgentRecord(agent_id=profiler_agent_id, agent_type="profiler")))
             profiler_process = ProfilerProcess(
                 context=self.master_context,
                 state_manager=self._state_manager,
@@ -274,7 +265,6 @@ class Dispatcher:
                 use_openai=use_openai,
             )
             profiler_output = await profiler_process.run(profiler_input)
-            await self._persist(self._state_manager.update_agent_completed(agent_id=profiler_agent_id))
 
             if profiler_output.success and profiler_output.protocol_manifesto:
                 self.protocol_manifesto = profiler_output.protocol_manifesto
@@ -299,8 +289,6 @@ class Dispatcher:
             )
 
             self.logger.info("Step 5/6: Actor Analysis...")
-            actor_agent_id=str(ObjectId())
-            await self._persist(self._state_manager.save_agent(agent_record=AgentRecord(agent_id=actor_agent_id, agent_type="actor")))
             actor_process = ActorProcess(
                 context=self.master_context,
                 state_manager=self._state_manager,
@@ -313,7 +301,6 @@ class Dispatcher:
                 use_openai=use_openai,
             )
             actor_output = await actor_process.run(actor_input)
-            await self._persist(self._state_manager.update_agent_completed(agent_id=actor_agent_id))
 
             if not actor_output.success or not actor_output.actor_matrix:
                 self.logger.error(
@@ -332,8 +319,6 @@ class Dispatcher:
             )
 
             self.logger.info("Step 6/6: Invariant Analysis...")
-            invariant_agent_id=str(ObjectId())
-            await self._persist(self._state_manager.save_agent(agent_record=AgentRecord(agent_id=invariant_agent_id, agent_type="invariant")))
             inv_process = InvariantProcess(
                 context=self.master_context,
                 state_manager=self._state_manager,
@@ -347,7 +332,6 @@ class Dispatcher:
                 use_openai=use_openai,
             )
             inv_output = await inv_process.run(inv_input)
-            await self._persist(self._state_manager.update_agent_completed(agent_id=invariant_agent_id))
 
             if inv_output.success:
                 self.invariants = {inv.id: inv for inv in inv_output.invariants}
@@ -608,21 +592,15 @@ class Dispatcher:
 
             # Agent-type specific execution
             if mission.agent_type == MissionAgentType.STATE:
-                await self._persist(self._state_manager.save_agent(agent_record=AgentRecord(agent_id=agent.agent_id, agent_type="state")))
                 await agent.chat_with_tools("Begin.")
-                await self._persist(self._state_manager.update_agent_completed(agent_id=agent.agent_id))
                 await self._handle_state_agent_result(mission, agent)
 
             elif mission.agent_type == MissionAgentType.QUANT:
-                await self._persist(self._state_manager.save_agent(agent_record=AgentRecord(agent_id=agent.agent_id, agent_type="quant")))
                 await agent.chat_with_tools("Begin.")
-                await self._persist(self._state_manager.update_agent_completed(agent_id=agent.agent_id))
                 await self._handle_state_agent_result(mission, agent)
 
             elif mission.agent_type == MissionAgentType.BLACKBOX:
-                await self._persist(self._state_manager.save_agent(agent_record=AgentRecord(agent_id=agent.agent_id, agent_type="blackbox")))
                 await agent.chat_with_tools("Begin.")
-                await self._persist(self._state_manager.update_agent_completed(agent_id=agent.agent_id))
                 await self._handle_blackbox_agent_result(mission, agent)
 
             else:
