@@ -9,11 +9,14 @@ from pydantic import BaseModel
 
 from kai.schemas import (
     ActorMatrix,
+    AgentRecord,
     CampaignBrief,
     ExploitCandidate,
+    Fix,
     Invariant,
     Mission,
     Observation,
+    ProtocolManifesto,
     Verdict,
 )
 from kai.state_manager import KaiStateManager
@@ -75,6 +78,12 @@ class LocalStateManager(KaiStateManager):
     async def save_actor_matrix(self, actor_matrix: ActorMatrix) -> bool:
         return True
 
+    async def save_protocol_manifesto(self, manifesto: ProtocolManifesto) -> bool:
+        return True
+
+    async def save_master_context(self, context: Any) -> bool:
+        return True
+
     async def save_invariants(self, invariants: List[Invariant]) -> bool:
         return True
 
@@ -95,7 +104,16 @@ class LocalStateManager(KaiStateManager):
     async def save_verdict(self, verdict: Verdict) -> bool:
         return True
 
+    async def save_fix(self, fix: Fix) -> bool:
+        return True
+
     async def save_observations(self, observations: List[Observation]) -> bool:
+        return True
+
+    async def save_agent(self, agent_record: AgentRecord) -> bool:
+        return True
+
+    async def update_agent_completed(self, agent_id: str) -> bool:
         return True
 
     async def save_conversation(

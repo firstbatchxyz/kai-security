@@ -32,17 +32,11 @@ from collections.abc import Callable
 from typing import Any, Dict, Optional, Tuple, Union
 from abc import ABC, abstractmethod
 
+import copy
 import json
 import os
 import uuid
 from bson import ObjectId
-
-from logger.mongo_logger import (
-    log_agent_started,
-    log_agent_metrics,
-    log_agent_complete,
-)
-import copy
 
 
 class BaseAgent(ABC):

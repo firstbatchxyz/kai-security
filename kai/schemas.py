@@ -95,6 +95,28 @@ class ExploitSeverity(str, Enum):
 
 
 # ---------------------------
+# Agent Record (for Agent Tracking in MongoDB)
+# ---------------------------
+
+
+class AgentRecord(BaseModel):
+    """
+    Record of an agent execution for MongoDB tracking.
+    
+    Created when an agent starts, updated when it completes.
+    The _id in MongoDB equals the worker_id used in exploits collection.
+    
+    MongoDB fields use camelCase (executionId, agentType, completedAt)
+    """
+    
+    agent_id: str = Field(serialization_alias="agentId")  # Same as worker_id in exploits
+    execution_id: Optional[str] = Field(default=None, serialization_alias="executionId")
+    agent_type: str = Field(serialization_alias="agentType")  # AgentType enum value
+    created_at: Optional[Any] = Field(default=None, serialization_alias="createdAt")  # datetime
+    completed_at: Optional[Any] = Field(default=None, serialization_alias="completedAt")  # datetime
+
+
+# ---------------------------
 # Invariant Types (for InvariantProcess → Dispatcher)
 # ---------------------------
 
@@ -118,6 +140,8 @@ class Invariant(BaseModel):
 
     All target fields reference node IDs from the DependencyGraph.
     Output of InvariantProcess, consumed by Dispatcher and Workers.
+    
+    MongoDB fields use camelCase (targetFunctionIds, targetVarIds, etc.)
     """
 
     id: str  # e.g., "INV_SUPPLY_CONSERVATION", "INV_ADMIN_UPGRADE"
@@ -126,14 +150,22 @@ class Invariant(BaseModel):
     explanation: str = ""  # LLM's reasoning for this invariant
 
     # Grounded targets - all must be valid graph node IDs
-    target_function_ids: List[str] = Field(default_factory=list)
-    target_var_ids: List[str] = Field(default_factory=list)
-    target_file_ids: List[str] = Field(default_factory=list)
+    target_function_ids: List[str] = Field(
+        default_factory=list, serialization_alias="targetFunctionIds"
+    )
+    target_var_ids: List[str] = Field(
+        default_factory=list, serialization_alias="targetVarIds"
+    )
+    target_file_ids: List[str] = Field(
+        default_factory=list, serialization_alias="targetFileIds"
+    )
 
     # Metadata
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     source: str = "llm"  # "llm", "pattern", "docs"
-    chunk_id: Optional[str] = None  # Which chunk this came from
+    chunk_id: Optional[str] = Field(
+        default=None, serialization_alias="chunkId"
+    )  # Which chunk this came from
 
 
 # Vocab table entries for LLM context
@@ -206,18 +238,20 @@ class Observation(BaseModel):
     Intermediate finding from non-invariant workers (BlackBox, Gamified).
 
     Gets refined by LLM into a tentative Invariant.
+    
+    MongoDB fields use camelCase (workerId, missionId, affectedFunctions, etc.)
     """
 
-    worker_id: str
-    mission_id: str
+    worker_id: str = Field(serialization_alias="workerId")
+    mission_id: str = Field(serialization_alias="missionId")
     description: str  # "Function X always reverts when called by any actor"
-    affected_functions: List[str] = Field(default_factory=list)
-    affected_files: List[str] = Field(default_factory=list)
+    affected_functions: List[str] = Field(default_factory=list, serialization_alias="affectedFunctions")
+    affected_files: List[str] = Field(default_factory=list, serialization_alias="affectedFiles")
     logs: List[str] = Field(default_factory=list)  # Raw output/traces
-    anomaly_type: Optional[str] = None  # "always_reverts", "unexpected_state", etc.
+    anomaly_type: Optional[str] = Field(default=None, serialization_alias="anomalyType")  # "always_reverts", "unexpected_state", etc.
 
     # --- Grounded blackbox fields (optional; backwards compatible) ---
-    repro_command: Optional[str] = None
+    repro_command: Optional[str] = Field(default=None, serialization_alias="reproCommand")
     seed: Optional[int] = None
 
 
@@ -226,18 +260,24 @@ class ExploitCandidate(BaseModel):
     A potential exploit from invariant-dependent agents.
 
     Sent to Verifier for confirmation.
+    
+    MongoDB fields use camelCase (missionId, workerId, invariantId, etc.)
     """
 
-    mission_id: str
-    worker_id: str
-    invariant_id: str  # Which invariant this claims to violate
+    mission_id: str = Field(serialization_alias="missionId")
+    worker_id: str = Field(serialization_alias="workerId")
+    invariant_id: str = Field(serialization_alias="invariantId")  # Which invariant this claims to violate
     mechanism: str  # "reentrancy", "access_control_bypass", etc.
-    poc_code: str  # The exploit contract/test code
-    target_file: str
-    target_function: str
+    poc_code: str = Field(serialization_alias="pocCode")  # The exploit contract/test code
+    target_file: str = Field(serialization_alias="targetFile")
+    target_function: str = Field(serialization_alias="targetFunction")
     description: str
     compiled: bool = False  # Did it compile in agent's workspace?
     logs: List[str] = Field(default_factory=list)
+    # Verdict fields (populated after verification)
+    severity: Optional[str] = None
+    verdict: Optional[Dict[str, Any]] = None  # {isValid: bool}
+    fixes: List["Fix"] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod
@@ -269,38 +309,40 @@ class Verdict(BaseModel):
     Verifier's judgment on an ExploitCandidate.
 
     Determines if the finding is valid, its severity, and economic feasibility.
+    
+    MongoDB fields use camelCase (missionId, invariantId, workerId, isValid, etc.)
     """
 
     # Reference to original finding
-    mission_id: str
-    invariant_id: str
-    worker_id: str
+    mission_id: str = Field(serialization_alias="missionId")
+    invariant_id: str = Field(serialization_alias="invariantId")
+    worker_id: str = Field(serialization_alias="workerId")
 
     # Core verdict
-    is_valid: bool  # Is this a real, exploitable vulnerability?
+    is_valid: bool = Field(serialization_alias="isValid")  # Is this a real, exploitable vulnerability?
     severity: VerdictSeverity
 
     # Analysis flags
-    uses_mock_contracts: bool = False  # Did PoC use fake/hostile contracts?
-    is_economically_feasible: bool = True  # Is attack profitable or at least cheap?
-    is_known_limitation: bool = False  # Known design tradeoff vs actual bug?
-    targets_real_implementation: bool = True  # Tests actual code, not just interface?
+    uses_mock_contracts: bool = Field(default=False, serialization_alias="usesMockContracts")  # Did PoC use fake/hostile contracts?
+    is_economically_feasible: bool = Field(default=True, serialization_alias="isEconomicallyFeasible")  # Is attack profitable or at least cheap?
+    is_known_limitation: bool = Field(default=False, serialization_alias="isKnownLimitation")  # Known design tradeoff vs actual bug?
+    targets_real_implementation: bool = Field(default=True, serialization_alias="targetsRealImplementation")  # Tests actual code, not just interface?
 
     # Economic analysis
-    attack_cost_estimate: Optional[str] = None  # e.g., "$1M donation to grief $1"
-    attacker_profit_estimate: Optional[str] = None  # e.g., "Can extract $X"
-    cost_benefit_ratio: Optional[str] = None  # e.g., "1000:1 loss ratio"
+    attack_cost_estimate: Optional[str] = Field(default=None, serialization_alias="attackCostEstimate")  # e.g., "$1M donation to grief $1"
+    attacker_profit_estimate: Optional[str] = Field(default=None, serialization_alias="attackerProfitEstimate")  # e.g., "Can extract $X"
+    cost_benefit_ratio: Optional[str] = Field(default=None, serialization_alias="costBenefitRatio")  # e.g., "1000:1 loss ratio"
 
     # Classification
-    vulnerability_class: str = ""  # "reentrancy", "donation_attack", "access_control"
+    vulnerability_class: str = Field(default="", serialization_alias="vulnerabilityClass")  # "reentrancy", "donation_attack", "access_control"
 
     # Reasoning
     reasoning: str  # Full analysis and justification
-    rejection_reason: Optional[str] = None  # If invalid, specific reason
+    rejection_reason: Optional[str] = Field(default=None, serialization_alias="rejectionReason")  # If invalid, specific reason
 
     # Original PoC reference
-    poc_path: Optional[str] = None
-    test_passed: bool = False  # Did the PoC test pass?
+    poc_path: Optional[str] = Field(default=None, serialization_alias="pocPath")
+    test_passed: bool = Field(default=False, serialization_alias="testPassed")  # Did the PoC test pass?
 
     # Fixes (populated after fixer runs)
     fixes: List["Fix"] = Field(default_factory=list)
@@ -311,25 +353,27 @@ class Fix(BaseModel):
     A code fix for a verified exploit.
 
     Generated by FixerAgent after Verifier confirms a vulnerability.
+    
+    MongoDB fields use camelCase (fixId, missionId, invariantId, etc.)
     """
 
     # Unique identifier
-    fix_id: str
+    fix_id: str = Field(serialization_alias="fixId")
 
     # References to original finding (for DB linking)
-    mission_id: str
-    invariant_id: str
-    verdict_id: Optional[str] = None  # If verdicts get IDs
+    mission_id: str = Field(serialization_alias="missionId")
+    invariant_id: str = Field(serialization_alias="invariantId")
+    verdict_id: Optional[str] = Field(default=None, serialization_alias="verdictId")  # If verdicts get IDs
 
     # Fix content
     summary: str  # One-paragraph summary of what was fixed
     reasoning: str  # Why this fix addresses the vulnerability
-    canonical_diff: str  # Unified diff string (can be multi-file)
-    files_changed: List[str] = Field(default_factory=list)
+    canonical_diff: str = Field(serialization_alias="canonicalDiff")  # Unified diff string (can be multi-file)
+    files_changed: List[str] = Field(default_factory=list, serialization_alias="filesChanged")
 
     # Validation status
     compiled: bool = False  # Did the fix compile?
-    tests_passed: bool = False  # Did tests pass after applying fix?
+    tests_passed: bool = Field(default=False, serialization_alias="testsPassed")  # Did tests pass after applying fix?
 
 
 class EnvironmentSetupInput(BaseModel):
@@ -726,11 +770,14 @@ class CampaignObjectives(BaseModel):
 
 
 class CampaignBudget(BaseModel):
-    """Resource budget for a campaign."""
+    """Resource budget for a campaign.
+    
+    MongoDB fields use camelCase (maxMissions, maxAgents, maxTurnsPerAgent)
+    """
 
-    max_missions: int = 6
-    max_agents: int = 3
-    max_turns_per_agent: int = 20
+    max_missions: int = Field(default=6, serialization_alias="maxMissions")
+    max_agents: int = Field(default=3, serialization_alias="maxAgents")
+    max_turns_per_agent: int = Field(default=20, serialization_alias="maxTurnsPerAgent")
 
 
 class InvariantCluster(BaseModel):
@@ -754,23 +801,26 @@ class CampaignBrief(BaseModel):
     A campaign brief with full execution context for agents.
 
     Self-contained: agents can execute with only this + workspace.
+    
+    MongoDB storage excludes: scope, master_context (stored in S3)
+    MongoDB fields use camelCase (campaignId, agentTypes, workspacePreset, etc.)
     """
 
-    campaign_id: str
+    campaign_id: str = Field(serialization_alias="campaignId")
     mode: CampaignMode = CampaignMode.INVARIANT_BOUNDED
-    agent_types: List[MissionAgentType] = Field(default_factory=list)
+    agent_types: List[MissionAgentType] = Field(default_factory=list, serialization_alias="agentTypes")
     framework: Optional[str] = None
-    workspace_preset: WorkspacePreset = WorkspacePreset.CLEAN
-    # Scope (derived from cluster + ActorMatrix + Graph)
-    scope: CampaignScope = Field(default_factory=CampaignScope)
-    # Invariants to test (full objects, not just IDs)
+    workspace_preset: WorkspacePreset = Field(default=WorkspacePreset.CLEAN, serialization_alias="workspacePreset")
+    # Scope (derived from cluster + ActorMatrix + Graph) - excluded from MongoDB
+    scope: CampaignScope = Field(default_factory=CampaignScope, exclude=True)
+    # Invariants to test (only IDs stored in MongoDB)
     invariants: List[Invariant] = Field(default_factory=list)
     # Objectives
-    objectives: CampaignObjectives = Field(default_factory=CampaignObjectives)
+    objectives: CampaignObjectives = Field(default_factory=CampaignObjectives, exclude=True)
     # Budget
     budget: CampaignBudget = Field(default_factory=CampaignBudget)
-    # MasterContext for agent independence
-    master_context: Optional[MasterContext] = None
+    # MasterContext for agent independence - excluded from MongoDB (stored in S3)
+    master_context: Optional[MasterContext] = Field(default=None, exclude=True)
     # Priority: 0=verification, 1=narrow, 2=broad
     priority: int = 1
 
@@ -780,21 +830,23 @@ class Mission(BaseModel):
     A single mission spawned from a campaign.
 
     What agents actually execute.
+    
+    MongoDB fields use camelCase (missionId, campaignId, invariantId, agentType, etc.)
     """
 
-    mission_id: str
-    campaign_id: str
+    mission_id: str = Field(serialization_alias="missionId")
+    campaign_id: str = Field(serialization_alias="campaignId")
     # Target invariant (None for exploratory/game modes)
-    invariant_id: Optional[str] = None
-    invariant: Optional[Invariant] = None
+    invariant_id: Optional[str] = Field(default=None, serialization_alias="invariantId")
+    invariant: Optional[Invariant] = None  # Excluded from MongoDB storage
     # Agent assignment
-    agent_type: MissionAgentType
-    # Inherited from campaign
-    scope: CampaignScope = Field(default_factory=CampaignScope)
-    workspace_preset: WorkspacePreset = WorkspacePreset.CLEAN
-    objectives: CampaignObjectives = Field(default_factory=CampaignObjectives)
+    agent_type: MissionAgentType = Field(serialization_alias="agentType")
+    # Inherited from campaign - excluded from MongoDB storage
+    scope: CampaignScope = Field(default_factory=CampaignScope, exclude=True)
+    workspace_preset: WorkspacePreset = Field(default=WorkspacePreset.CLEAN, exclude=True, serialization_alias="workspacePreset")
+    objectives: CampaignObjectives = Field(default_factory=CampaignObjectives, exclude=True)
     # Budget for this mission
-    max_turns: int = 20
+    max_turns: int = Field(default=20, serialization_alias="maxTurns")
     # State
     status: str = "pending"  # pending, in_progress, completed, failed
 

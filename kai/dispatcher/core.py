@@ -6,6 +6,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from bson import ObjectId
 
 # Type alias for shutdown trigger callable
 ShutdownTrigger = Callable[[], bool]
@@ -29,6 +30,7 @@ from kai.schemas import (
     VerdictSeverity,
     VerifierProcessInput,
     WorkspacePreset,
+    AgentRecord
 )
 from kai.utils.dependency.graph import DependencyGraph
 
@@ -162,9 +164,10 @@ class Dispatcher:
         try:
             self.logger.info("Step 1/6: Environment Setup...")
             env_process = EnvironmentSetupProcess(
-                MasterContext(
+                context=MasterContext(
                     root_path="./", compile_success=True
-                )  # TODO: get path from env
+                ),  # TODO: get path from env
+                state_manager=self._state_manager,
             )
             env_input = EnvironmentSetupInput(
                 repo_url=repo_url or "",
@@ -173,7 +176,11 @@ class Dispatcher:
                 use_openai=use_openai,
                 repo_path_override=repo_path,
             )
+            ## Agent id will be given dummy / Not important agent for frontend TODO: Implement agent saving more deterministically
+            setup_agent_id=str(ObjectId())
+            await self._persist(self._state_manager.save_agent(agent_record=AgentRecord(agent_id=setup_agent_id, agent_type="setup")))
             env_output = await env_process.run(env_input)
+            await self._persist(self._state_manager.update_agent_completed(agent_id=setup_agent_id))
 
             if not env_output.success or not env_output.master_context:
                 self.logger.error(
@@ -218,9 +225,10 @@ class Dispatcher:
             self.logger.info("Step 3/6: Workspace Validation...")
             from kai.processes.workspace_validation import WorkspaceValidationProcess
             from kai.schemas import WorkspacePreset, WorkspaceValidationInput
-
+            workspace_validation_agent_id=str(ObjectId())
+            await self._persist(self._state_manager.save_agent(agent_record=AgentRecord(agent_id=workspace_validation_agent_id, agent_type="workspace_validation")))
             ws_output = await WorkspaceValidationProcess(
-                context=self.master_context
+                context=self.master_context,
             ).run(
                 WorkspaceValidationInput(
                     master_context=self.master_context,
@@ -234,6 +242,7 @@ class Dispatcher:
                     timeout_test_s=120,
                 )
             )
+            await self._persist(self._state_manager.update_agent_completed(agent_id=workspace_validation_agent_id))
             if not ws_output.success:
                 self.logger.error(
                     ws_output.error_message or "Workspace validation failed"
@@ -250,7 +259,12 @@ class Dispatcher:
             self.logger.info("Workspace validation passed")
 
             self.logger.info("Step 4/6: Profiler...")
-            profiler_process = ProfilerProcess(context=self.master_context)
+            profiler_agent_id=str(ObjectId())
+            await self._persist(self._state_manager.save_agent(agent_record=AgentRecord(agent_id=profiler_agent_id, agent_type="profiler")))
+            profiler_process = ProfilerProcess(
+                context=self.master_context,
+                state_manager=self._state_manager,
+            )
             profiler_input = ProfilerInput(
                 master_context=self.master_context,
                 num_turns=5,
@@ -258,6 +272,7 @@ class Dispatcher:
                 use_openai=use_openai,
             )
             profiler_output = await profiler_process.run(profiler_input)
+            await self._persist(self._state_manager.update_agent_completed(agent_id=profiler_agent_id))
 
             if profiler_output.success and profiler_output.protocol_manifesto:
                 self.protocol_manifesto = profiler_output.protocol_manifesto
@@ -282,7 +297,12 @@ class Dispatcher:
             )
 
             self.logger.info("Step 5/6: Actor Analysis...")
-            actor_process = ActorProcess(context=self.master_context)
+            actor_agent_id=str(ObjectId())
+            await self._persist(self._state_manager.save_agent(agent_record=AgentRecord(agent_id=actor_agent_id, agent_type="actor")))
+            actor_process = ActorProcess(
+                context=self.master_context,
+                state_manager=self._state_manager,
+            )
             actor_input = ActorMatrixInput(
                 master_context=self.master_context,
                 dependency_graph=self.dependency_graph,
@@ -291,6 +311,7 @@ class Dispatcher:
                 use_openai=use_openai,
             )
             actor_output = await actor_process.run(actor_input)
+            await self._persist(self._state_manager.update_agent_completed(agent_id=actor_agent_id))
 
             if not actor_output.success or not actor_output.actor_matrix:
                 self.logger.error(
@@ -309,7 +330,12 @@ class Dispatcher:
             )
 
             self.logger.info("Step 6/6: Invariant Analysis...")
-            inv_process = InvariantProcess(context=self.master_context)
+            invariant_agent_id=str(ObjectId())
+            await self._persist(self._state_manager.save_agent(agent_record=AgentRecord(agent_id=invariant_agent_id, agent_type="invariant")))
+            inv_process = InvariantProcess(
+                context=self.master_context,
+                state_manager=self._state_manager,
+            )
             inv_input = InvariantProcessInput(
                 master_context=self.master_context,
                 dependency_graph=self.dependency_graph,
@@ -319,6 +345,7 @@ class Dispatcher:
                 use_openai=use_openai,
             )
             inv_output = await inv_process.run(inv_input)
+            await self._persist(self._state_manager.update_agent_completed(agent_id=invariant_agent_id))
 
             if inv_output.success:
                 self.invariants = {inv.id: inv for inv in inv_output.invariants}
@@ -528,7 +555,6 @@ class Dispatcher:
             self.completed_missions.append(mission)
             return
 
-        agent = None
         try:
             # Provision workspace
             workspace_path = self._provision_workspace(mission)
@@ -545,21 +571,29 @@ class Dispatcher:
                 execution_id=mission.mission_id,
             )
 
+            
+
             self.logger.info(
                 f"Executing {mission.mission_id} with {mission.agent_type.value}"
             )
 
             # Agent-type specific execution
             if mission.agent_type == MissionAgentType.STATE:
+                await self._persist(self._state_manager.save_agent(agent_record=AgentRecord(agent_id=agent.agent_id, agent_type="state")))
                 await agent.chat_with_tools("Begin.")
+                await self._persist(self._state_manager.update_agent_completed(agent_id=agent.agent_id))
                 await self._handle_state_agent_result(mission, agent)
 
             elif mission.agent_type == MissionAgentType.QUANT:
+                await self._persist(self._state_manager.save_agent(agent_record=AgentRecord(agent_id=agent.agent_id, agent_type="quant")))
                 await agent.chat_with_tools("Begin.")
+                await self._persist(self._state_manager.update_agent_completed(agent_id=agent.agent_id))
                 await self._handle_state_agent_result(mission, agent)
 
             elif mission.agent_type == MissionAgentType.BLACKBOX:
+                await self._persist(self._state_manager.save_agent(agent_record=AgentRecord(agent_id=agent.agent_id, agent_type="blackbox")))
                 await agent.chat_with_tools("Begin.")
+                await self._persist(self._state_manager.update_agent_completed(agent_id=agent.agent_id))
                 await self._handle_blackbox_agent_result(mission, agent)
 
             else:
@@ -669,7 +703,10 @@ class Dispatcher:
         self.logger.info(f"Verifying exploit candidate: {candidate.mission_id}")
 
         try:
-            process = VerifierProcess(context=self.master_context)
+            process = VerifierProcess(
+                context=self.master_context,
+                state_manager=self._state_manager,
+            )
             process_input = VerifierProcessInput(
                 exploit_candidate=candidate,
                 invariant=invariant,
@@ -895,7 +932,10 @@ class Dispatcher:
         from kai.processes.invariant_synthesizer import InvariantSynthesizerProcess
         from kai.schemas import InvariantSynthesizerInput
 
-        process = InvariantSynthesizerProcess(context=self.master_context)
+        process = InvariantSynthesizerProcess(
+            context=self.master_context,
+            state_manager=self._state_manager,
+        )
         input_data = InvariantSynthesizerInput(
             observations=[observation],
             master_context=self.master_context,

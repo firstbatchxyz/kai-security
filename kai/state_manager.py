@@ -10,6 +10,7 @@ from typing import List, Optional, Dict, Any, Literal
 
 from kai.schemas import (
     ActorMatrix,
+    AgentRecord,
     ExploitCandidate,
     Fix,
     Invariant,
@@ -230,5 +231,31 @@ class KaiStateManager(ABC):
 
         Returns:
             Path or URI where conversation was saved, or None if failed
+        """
+        pass
+
+    @abstractmethod
+    async def save_agent(self, agent_record: AgentRecord) -> bool:
+        """
+        Save an agent record when an agent starts execution.
+
+        Args:
+            agent_record: The agent record to save
+
+        Returns:
+            True if successful
+        """
+        pass
+
+    @abstractmethod
+    async def update_agent_completed(self, agent_id: str) -> bool:
+        """
+        Update an agent record's completedAt timestamp when agent finishes.
+
+        Args:
+            agent_id: The agent's unique identifier
+
+        Returns:
+            True if successful
         """
         pass
