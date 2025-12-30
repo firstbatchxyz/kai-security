@@ -38,6 +38,10 @@ class LocalStateManager(KaiStateManager):
     ):
         super().__init__(execution_id=execution_id)
         self._output_dir = Path(output_dir) if output_dir is not None else None
+        
+        # Internal ID mappings (same as ExecutorStateManager for consistency)
+        self._invariant_id_map: Dict[str, str] = {}
+        self._campaign_id_map: Dict[str, str] = {}
 
     def _project_root(self) -> Path:
         # kai/utils/state_managers/local.py -> .../kai/utils/state_managers -> .../kai/utils -> .../kai -> <repo_root>
@@ -71,8 +75,8 @@ class LocalStateManager(KaiStateManager):
 
     async def save_campaigns(
         self, campaigns: List[CampaignBrief], invariant_id_map: Optional[Dict[str, str]] = None
-    ) -> bool:
-        return True
+    ) -> Dict[str, str]:
+        return {}
 
     async def save_dependency_graph(self, graph_data: Dict[str, Any]) -> bool:
         return True
@@ -89,7 +93,12 @@ class LocalStateManager(KaiStateManager):
     async def save_invariants(self, invariants: List[Invariant]) -> Dict[str, str]:
         return {}
 
-    async def save_missions(self, missions: List[Mission]) -> bool:
+    async def save_missions(
+        self,
+        missions: List[Mission],
+        campaign_id_map: Optional[Dict[str, str]] = None,
+        invariant_id_map: Optional[Dict[str, str]] = None,
+    ) -> bool:
         return True
 
     async def update_mission_status(

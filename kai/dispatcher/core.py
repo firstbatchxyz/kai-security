@@ -348,27 +348,28 @@ class Dispatcher:
                 else None
             )
             
-            # Save invariants and capture MongoDB _id mapping
-            invariant_id_map = {}
-            if self._state_manager:
-                invariant_id_map = await self._state_manager.save_invariants(
-                    list(self.invariants.values())
-                )
+            # Save invariants (state manager stores ID mappings internally)
+            await self._persist(
+                self._state_manager.save_invariants(list(self.invariants.values()))
+                if self._state_manager
+                else None
+            )
 
             self.logger.info("Planning missions...")
             planned_missions = self._plan_missions()
 
-            # Persist campaigns and missions (pass invariant_id_map to campaigns)
+            # Persist campaigns (uses internal invariant mappings, stores campaign mappings)
             await self._persist(
-                self._state_manager.save_campaigns(self.campaigns, invariant_id_map)
+                self._state_manager.save_campaigns(self.campaigns)
                 if self._state_manager
                 else None
             )
+            
+            # Persist missions (uses internal campaign and invariant mappings)
             await self._persist(
-                self._state_manager.save_missions(
-                    planned_missions,
-                    invariant_id_map=invariant_id_map
-                ) if self._state_manager else None
+                self._state_manager.save_missions(planned_missions)
+                if self._state_manager
+                else None
             )
 
             self.logger.info(

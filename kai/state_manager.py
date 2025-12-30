@@ -52,7 +52,7 @@ class KaiStateManager(ABC):
     @abstractmethod
     async def save_campaigns(
         self, campaigns: List[CampaignBrief], invariant_id_map: Optional[Dict[str, str]] = None
-    ) -> bool:
+    ) -> Dict[str, str]:
         """
         Save campaign briefs.
 
@@ -61,7 +61,7 @@ class KaiStateManager(ABC):
             invariant_id_map: Optional mapping of invariant.id -> MongoDB _id
 
         Returns:
-            True if successful
+            Dict mapping campaign.campaign_id -> MongoDB _id (as string)
         """
         pass
 
@@ -131,12 +131,19 @@ class KaiStateManager(ABC):
         pass
 
     @abstractmethod
-    async def save_missions(self, missions: List[Mission]) -> bool:
+    async def save_missions(
+        self,
+        missions: List[Mission],
+        campaign_id_map: Optional[Dict[str, str]] = None,
+        invariant_id_map: Optional[Dict[str, str]] = None,
+    ) -> bool:
         """
         Save missions.
 
         Args:
             missions: List of missions to save
+            campaign_id_map: Optional mapping of campaign.campaign_id -> MongoDB _id
+            invariant_id_map: Optional mapping of invariant.id -> MongoDB _id
 
         Returns:
             True if successful
