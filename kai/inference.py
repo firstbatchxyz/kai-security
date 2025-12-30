@@ -7,7 +7,7 @@ import requests
 from kai.agents.settings import (
     OPENROUTER_API_KEY,
     OPENROUTER_BASE_URL,
-    OPENROUTER_STRONG_MODEL,
+    MAIN_DEFAULT_MODEL,
     OPENAI_API_KEY,
 )
 from kai.schemas import ChatMessage, Role
@@ -104,7 +104,7 @@ async def get_model_response(
     messages: Optional[list[ChatMessage]] = None,
     message: Optional[str] = None,
     system_prompt: Optional[str] = None,
-    model: str = OPENROUTER_STRONG_MODEL,
+    model: str = MAIN_DEFAULT_MODEL,
     client: Optional[AsyncOpenAI] = None,
     use_vllm: bool = False,
     use_openai: bool = False,
@@ -194,7 +194,7 @@ async def get_model_response_with_tools(
     messages: list[ChatMessage],
     tools: List[Dict[str, Any]],
     tool_executor: Callable[[str, Dict[str, Any]], Any],
-    model: str = OPENROUTER_STRONG_MODEL,
+    model: str = MAIN_DEFAULT_MODEL,
     client: Optional[AsyncOpenAI] = None,
     use_vllm: bool = False,
     use_openai: bool = False,

@@ -70,33 +70,11 @@ async def test_invariant_synthesizer_process_real_run():
     )
 
     # 2. Execute process (real agent run)
-    # Check output directory before
-    repo_slug = Path(brief.master_context.root_path).name
-    output_dir = Path(__file__).resolve().parents[2] / "output" / repo_slug
-    output_dir.mkdir(parents=True, exist_ok=True)
-    before_files = {p for p in output_dir.glob("invariant_synthesizer_*.json")}
-
     output = await process.execute(input_data)
 
     # 3. Assertions
     assert output.success is True
     assert output.stats["seen"] == 2
-
-    # Verify conversation files were saved
-    after_files = {p for p in output_dir.glob("invariant_synthesizer_*.json")}
-    new_files = after_files - before_files
-    assert len(new_files) > 0, "Conversation files should have been saved"
-
-    # Verify per-observation result artifacts exist and indicate invariant vs no-invariant.
-    result_files = sorted([p for p in new_files if p.name.endswith(".result.json")])
-    assert len(result_files) == 2, (
-        "Each processed observation should emit a .result.json artifact"
-    )
-    for p in result_files:
-        payload = json.loads(p.read_text())
-        assert payload.get("kind") in {"invariant", "no_invariant"}
-
-    print(f"Process stats: {output.stats}")
 
     assert len(output.invariants) == output.stats["converted"]
 

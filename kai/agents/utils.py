@@ -54,7 +54,6 @@ def load_system_prompt(
     task_description: str = "",
     max_turns: int = settings.MAX_TOOL_TURNS,
     depth: int = 0,
-    max_depth: int = settings.MAX_DEPTH,
     tools_schema: str | None = None,
 ) -> str:
     """
@@ -86,7 +85,6 @@ def load_system_prompt(
                 )
                 system_prompt = system_prompt.replace("{{max_turns}}", str(max_turns))
                 system_prompt = system_prompt.replace("{{depth}}", str(depth))
-                system_prompt = system_prompt.replace("{{max_depth}}", str(max_depth))
 
             if tools_schema:
                 system_prompt = (

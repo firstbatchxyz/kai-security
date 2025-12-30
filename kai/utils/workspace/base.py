@@ -108,3 +108,17 @@ class WorkspaceAdapter(ABC):
         if (master / "src").exists():
             return master / "src"
         return master
+
+    def get_runtime_writable_paths(
+        self, project_root: Path, master_context: MasterContext
+    ) -> list[Path]:
+        """
+        Return build/cache paths that must remain writable in the golden master.
+
+        Envsetup makes the master read-only to enforce immutability, but some toolchains
+        (compilers/test runners) need to write build artifacts and caches. This method
+        lets each framework declare which *project-local* directories must stay writable.
+
+        Implementations must only return paths under `project_root` (no absolute/external paths).
+        """
+        return []

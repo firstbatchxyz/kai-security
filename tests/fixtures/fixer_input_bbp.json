@@ -38,18 +38,10 @@
     "lib_path": "/Users/atakantekparmak/Desktop/work/exploit-agent/testbed/bbp-public-assets-f3e56d5f/master/contracts/lib",
     "test_path": "/Users/atakantekparmak/Desktop/work/exploit-agent/testbed/bbp-public-assets-f3e56d5f/master/contracts/test",
     "compile_success": true,
-    "build_commands": [
-      {
-        "command": "forge build --root /Users/atakantekparmak/Desktop/work/exploit-agent/testbed/bbp-public-assets-f3e56d5f/master/contracts",
-        "order_of_execution": 0
-      }
-    ],
-    "test_commands": [
-      {
-        "command": "forge test --root /Users/atakantekparmak/Desktop/work/exploit-agent/testbed/bbp-public-assets-f3e56d5f/master/contracts",
-        "order_of_execution": 0
-      }
-    ],
+    "build_script_path": "scripts/kai_build.sh",
+    "build_script": "#!/usr/bin/env bash\nset -euo pipefail\n\nforge build --root /Users/atakantekparmak/Desktop/work/exploit-agent/testbed/bbp-public-assets-f3e56d5f/master/contracts\n",
+    "test_script_path": "scripts/kai_test.sh",
+    "test_script": "#!/usr/bin/env bash\nset -euo pipefail\n\nforge test --root /Users/atakantekparmak/Desktop/work/exploit-agent/testbed/bbp-public-assets-f3e56d5f/master/contracts\n",
     "adapter": "solidity"
   },
   "model_name": "anthropic/claude-opus-4.5",

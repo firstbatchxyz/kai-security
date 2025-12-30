@@ -8,9 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 from bson import ObjectId
 
-# Type alias for shutdown trigger callable
-ShutdownTrigger = Callable[[], bool]
-
+from kai.agents import settings
 from kai.state_manager import KaiStateManager
 
 from kai.schemas import (
@@ -38,6 +36,9 @@ from kai.dispatcher.planner import MissionPlanner
 from kai.dispatcher.workspace import WorkspaceManager
 from kai.dispatcher.agent_factories import AGENT_FACTORIES as DEFAULT_AGENT_FACTORIES
 
+# Type alias for shutdown trigger callable
+ShutdownTrigger = Callable[[], bool]
+
 if TYPE_CHECKING:
     from kai.agents.base import BaseAgent
 
@@ -58,7 +59,7 @@ class DispatcherConfig:
     default_budget: CampaignBudget = field(default_factory=CampaignBudget)
     workspace_dir: str = "./kai_workspaces"  # TODO: check if it respects workspace_dir
     # Model settings for agents
-    model: str = "openai/gpt-5.2"
+    model: str = settings.MAIN_DEFAULT_MODEL
     use_openai: bool = False
 
 
@@ -140,7 +141,7 @@ class Dispatcher:
         self,
         repo_url: Optional[str] = None,
         repo_path: Optional[str] = None,
-        model_name: str = "openai/gpt-5.2",
+        model_name: str = settings.MAIN_DEFAULT_MODEL,
         use_openai: bool = False,
     ) -> bool:
         """
@@ -228,7 +229,7 @@ class Dispatcher:
             workspace_validation_agent_id=str(ObjectId())
             await self._persist(self._state_manager.save_agent(agent_record=AgentRecord(agent_id=workspace_validation_agent_id, agent_type="workspace_validation")))
             ws_output = await WorkspaceValidationProcess(
-                context=self.master_context,
+                context=self.master_context, workspace_dir=self.config.workspace_dir
             ).run(
                 WorkspaceValidationInput(
                     master_context=self.master_context,
@@ -267,6 +268,7 @@ class Dispatcher:
             )
             profiler_input = ProfilerInput(
                 master_context=self.master_context,
+                dependency_graph=self.dependency_graph,
                 num_turns=5,
                 model_name=model_name,
                 use_openai=use_openai,
@@ -398,17 +400,42 @@ class Dispatcher:
 
         Uses the appropriate builder based on MasterContext.adapter.
         """
+        import os
+        import uuid
         from pathlib import Path
         from kai.utils.dependency.builders import get_builder
 
         if not self.master_context:
             return None
 
-        root_path = Path(self.master_context.root_path)
+        master_root = Path(self.master_context.root_path).resolve()
+        analysis_root = master_root
+
+        # The golden master is intentionally marked read-only. Slither/CryticCompile may run
+        # To keep the master immutable while allowing compilation, build the graph in a
+        # writable workspace copy when the master root isn't writable.
+        if not os.access(str(master_root), os.W_OK):
+            try:
+                ws_id = f"analysis_{uuid.uuid4().hex[:8]}"
+                ws_path = self._workspace_manager.provision(
+                    workspace_id=ws_id,
+                    master_path=str(master_root),
+                    preset=WorkspacePreset.CLEAN,
+                    master_context=self.master_context,
+                )
+                analysis_root = Path(ws_path).resolve()
+                self.logger.info(
+                    f"Provisioned analysis workspace for DependencyGraph: {analysis_root}"
+                )
+            except Exception as e:
+                self.logger.warning(
+                    f"Failed to provision analysis workspace; falling back to master root: {e}"
+                )
+                analysis_root = master_root
 
         try:
             builder = get_builder(self.master_context.adapter)
-            graph = builder.build(root_path)
+            graph = builder.build(analysis_root)
             self.logger.info(f"Built graph with {len(graph._nodes)} nodes")
             return graph
         except Exception as e:
@@ -820,6 +847,7 @@ class Dispatcher:
         from kai.agents.agent_types.fixer_agent import FixerAgent
 
         # Get the invariant
+        # TODO: check if this is needed
         invariant = self.invariants.get(candidate.invariant_id)
 
         self.logger.info(f"Fixing exploit: {candidate.mission_id}")

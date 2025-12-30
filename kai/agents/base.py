@@ -1,6 +1,4 @@
-from kai.agents.engine import execute_sandboxed_code
 from kai.inference import (
-    get_model_response,
     get_model_response_with_tools,
     create_openai_client,
     create_vllm_client,
@@ -8,34 +6,26 @@ from kai.inference import (
 )
 from kai.agents.utils import (
     load_system_prompt,
-    extract_python_code,
-    format_results_and_remaining_turns,
-    extract_thoughts,
     AgentType,
-    agent_type_to_kind,
     generate_openai_tools,
 )
 from kai.agents.settings import (
-    SAVE_CONVERSATION_PATH,
     MAX_TOOL_TURNS,
+    MAIN_DEFAULT_MODEL,
     VLLM_HOST,
     VLLM_PORT,
-    OPENROUTER_STRONG_MODEL,
-    OPENAI_STRONG_MODEL,
-    MAX_DEPTH,
 )
 from kai.schemas import ChatMessage, Role, AgentResponse
 import asyncio
 from logger import logger
 
 from collections.abc import Callable
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Union
 from abc import ABC, abstractmethod
 
 import copy
 import json
 import os
-import uuid
 from bson import ObjectId
 
 
@@ -50,23 +40,19 @@ class BaseAgent(ABC):
         model: Optional[str] = None,
         agent_type: Optional[AgentType] = None,
         use_openai: bool = False,
-        scope_paths: Optional[
-            list[str]
-        ] = None,  # NEW: Restrict file access to these paths
-        parent_agent_id: Optional[str] = None,  # NEW: Track hierarchy
-        depth: int = 0,  # NEW: Depth in hierarchy
-        max_depth: int = MAX_DEPTH,  # NEW: Maximum recursion depth
+        scope_paths: Optional[list[str]] = None,  # Restrict file access to these paths
+        parent_agent_id: Optional[str] = None,  # Track hierarchy
+        depth: int = 0,  # Depth in hierarchy (for logging)
         system_prompt_tools_schema: str | None = None,
     ):
         if agent_type is None:
             raise ValueError("agent_type must be provided")
         self.agent_type: AgentType = agent_type
 
-        # Agent identification and hierarchy (NEW)
+        # Agent identification and hierarchy
         self.agent_id = str(ObjectId())  # Convert to string for JSON serialization
         self.parent_agent_id = parent_agent_id
         self.depth = depth
-        self.max_depth = max_depth
 
         # For sub-agents, store execution_id
         self.execution_id = None  # Will be set for sub-agents
@@ -138,7 +124,6 @@ class BaseAgent(ABC):
             task_description="",  # Will be set in delegation instruction
             max_turns=self.max_tool_turns,
             depth=depth,
-            max_depth=max_depth,
             tools_schema=system_prompt_tools_schema,
         )
         self.messages: list[ChatMessage] = [
@@ -162,14 +147,8 @@ class BaseAgent(ABC):
         self.time_spent = 0.0  # Time spent by this agent only (seconds)
         self.start_time = None  # Will be set when chat() starts
 
-        # Set model: use provided model, or fallback to OPENROUTER_STRONG_MODEL
-        if model:
-            self.model = model
-        else:
-            if use_openai:
-                self.model = OPENAI_STRONG_MODEL
-            else:
-                self.model = OPENROUTER_STRONG_MODEL
+        # Set model: use provided model, or fallback to MAIN_DEFAULT_MODEL
+        self.model = model if model else MAIN_DEFAULT_MODEL
 
         # Each Agent instance gets its own clients to avoid bottlenecks
         if use_vllm:

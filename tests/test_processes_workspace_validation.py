@@ -5,7 +5,7 @@ import pytest  # type: ignore[import-not-found]
 from kai.agents import settings
 from kai.processes.workspace_validation import WorkspaceValidationProcess
 from kai.schemas import WorkspacePreset, WorkspaceValidationInput
-from kai.tests.test_processes_profiler import (
+from tests.test_processes_profiler import (
     _load_master_context,
     _normalize_master_context_paths,
 )

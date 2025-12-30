@@ -13,12 +13,16 @@ from kai.utils.tool_adapters.base import (
     TestResult,
 )
 from kai.utils.tool_adapters.foundry import FoundryToolAdapter
+from kai.utils.tool_adapters.cargo import CargoToolAdapter
+from kai.utils.tool_adapters.cmake import CMakeToolAdapter
 
 __all__ = [
     "ToolAdapter",
     "CompileResult",
     "TestResult",
     "FoundryToolAdapter",
+    "CargoToolAdapter",
+    "CMakeToolAdapter",
     "get_tool_adapter",
     "get_supported_frameworks",
 ]
@@ -29,7 +33,8 @@ _ADAPTERS = {
     "forge": FoundryToolAdapter,  # Alias
     # Future adapters:
     # "hardhat": HardhatToolAdapter,
-    # "cargo": CargoToolAdapter,
+    "cargo": CargoToolAdapter,
+    "cmake": CMakeToolAdapter,
 }
 
 # Singleton cache for adapter instances

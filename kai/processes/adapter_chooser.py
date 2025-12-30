@@ -18,12 +18,17 @@ from kai.schemas import (
 LANGUAGE_FRAMEWORK_MAP: Dict[Language, list[Framework]] = {
     Language.SOLIDITY: [Framework.FOUNDRY],
     Language.JAVASCRIPT: [Framework.NODE],
+    Language.RUST: [Framework.CARGO],
+    Language.CPP: [Framework.CMAKE],
 }
 
 # Mapping: framework -> adapter class name (or None if not needed)
 FRAMEWORK_ADAPTER_MAP: Dict[Framework, Optional[str]] = {
     Framework.FOUNDRY: "SolidityAdapter",
     Framework.NODE: None,
+    # Setup-only (no dependency adapter yet)
+    Framework.CARGO: None,
+    Framework.CMAKE: None,
 }
 
 
@@ -210,8 +215,13 @@ class AdapterChooserProcess(BaseProcess[AdapterChooserInput, AdapterChooserOutpu
 
         # Heuristic: master context frameworks
         for fw in self.context.frameworks or []:
-            if str(fw).lower() in {"foundry", "forge"}:
+            fw_lower = str(fw).lower()
+            if fw_lower in {"foundry", "forge"}:
                 detected.add(Language.SOLIDITY)
+            if fw_lower in {"cargo"}:
+                detected.add(Language.RUST)
+            if fw_lower in {"cmake"}:
+                detected.add(Language.CPP)
 
         # File-based heuristics
         for current, dirs, files in os.walk(repo_root):
@@ -231,7 +241,29 @@ class AdapterChooserProcess(BaseProcess[AdapterChooserInput, AdapterChooserOutpu
             if any(f.endswith((".js", ".ts", ".cjs", ".mjs")) for f in lowered_files):
                 detected.add(Language.JAVASCRIPT)
 
-            if Language.SOLIDITY in detected and Language.JAVASCRIPT in detected:
+            if "cargo.toml" in lowered_files or "cargo.lock" in lowered_files:
+                detected.add(Language.RUST)
+            if any(f.endswith(".rs") for f in lowered_files):
+                detected.add(Language.RUST)
+
+            if (
+                "cmakelists.txt" in lowered_files
+                or "compile_commands.json" in lowered_files
+            ):
+                detected.add(Language.CPP)
+            if any(
+                f.endswith((".cpp", ".cc", ".cxx", ".c", ".h", ".hpp"))
+                for f in lowered_files
+            ):
+                detected.add(Language.CPP)
+
+            # Early exit once we have a reasonable multi-language set
+            if (
+                Language.SOLIDITY in detected
+                and Language.JAVASCRIPT in detected
+                and Language.RUST in detected
+                and Language.CPP in detected
+            ):
                 break
 
         return detected

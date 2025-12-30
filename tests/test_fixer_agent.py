@@ -1,6 +1,5 @@
 import json
 import shutil
-import sys
 from pathlib import Path
 
 import pytest  # type: ignore[import-not-found]
@@ -8,9 +7,8 @@ import pytest  # type: ignore[import-not-found]
 from kai.agents import settings
 from kai.agents.agent_types.fixer_agent import FixerAgent
 from kai.schemas import FixerInput, WorkspacePreset
-from kai.tests.test_processes_profiler import _normalize_master_context_paths
+from tests.test_processes_profiler import _normalize_master_context_paths
 from kai.utils.dependency import DependencyGraph
-from kai.utils.state_managers import LocalStateManager
 from kai.utils.tool_adapters import get_tool_adapter
 from kai.utils.workspace import get_workspace_adapter
 from logger import logging
@@ -115,8 +113,6 @@ async def test_fixer_agent_runs_and_registers_fix_on_bbp(tmp_path: Path):
     agent.framework = "foundry"
     user_prompt = "Start your work."
 
-    state_manager = LocalStateManager(execution_id=agent.execution_id or agent.agent_id)
-
     try:
         await agent.chat_with_tools(user_prompt)
 
@@ -128,29 +124,4 @@ async def test_fixer_agent_runs_and_registers_fix_on_bbp(tmp_path: Path):
         # Sanity: canonical unified diff should look like a diff.
         assert "---" in latest["canonical_diff"] or "@@" in latest["canonical_diff"]
     finally:
-        # Persist conversation for debugging even when assertions fail.
-        try:
-            convo_path = await state_manager.save_conversation(
-                agent_id=agent.agent_id,
-                agent_type="fixer",
-                messages=[m.model_dump() for m in agent.messages],
-                metadata={
-                    "repo_path": workspace_path,
-                    "estimated_cost": agent.estimated_cost,
-                    "total_tokens": agent.total_tokens,
-                    "time_spent": agent.time_spent,
-                    "model": agent.model,
-                    # Preserve the old relative filename semantics (optional).
-                    "conversation_path": "conversations/fixer_convo.json",
-                },
-            )
-            print(
-                f"[fixer_test] fixer conversation saved at: {convo_path}",
-                file=sys.stderr,
-            )
-            print(f"[fixer_test] exists={Path(convo_path).exists()}", file=sys.stderr)
-        except Exception as e:
-            print(
-                f"[fixer_test] failed to save fixer conversation: {e}", file=sys.stderr
-            )
         await agent.close()

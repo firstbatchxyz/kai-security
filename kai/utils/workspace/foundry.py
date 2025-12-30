@@ -105,6 +105,55 @@ class FoundryWorkspaceAdapter(WorkspaceAdapter):
             )
         return str(workspace)
 
+    def get_runtime_writable_paths(
+        self, project_root: Path, master_context: MasterContext
+    ) -> list[Path]:
+        """
+        Foundry writes build artifacts and caches under `out/` and `cache_path` (e.g. forge-cache).
+        These must remain writable even when the rest of the golden master is read-only.
+        """
+        out_dir = "out"
+        cache_path = "cache"
+
+        cfg = project_root / "foundry.toml"
+        if cfg.exists() and cfg.is_file():
+            try:
+                import tomllib  # py3.11+
+
+                data = tomllib.loads(cfg.read_text(encoding="utf-8"))
+                profile = (data.get("profile") or {}).get("default") or {}
+                out_dir_val = profile.get("out") or data.get("out")
+                cache_val = profile.get("cache_path") or data.get("cache_path")
+                if isinstance(out_dir_val, str) and out_dir_val.strip():
+                    out_dir = out_dir_val.strip().strip('"').strip("'")
+                if isinstance(cache_val, str) and cache_val.strip():
+                    cache_path = cache_val.strip().strip('"').strip("'")
+            except Exception:
+                # Best-effort parsing; defaults are fine.
+                pass
+
+        rels = [out_dir, cache_path, "cache", f"{out_dir}/build-info"]
+        out: list[Path] = []
+        seen: set[str] = set()
+        for rel in rels:
+            try:
+                p = Path(rel)
+                if p.is_absolute():
+                    continue
+                resolved = (project_root / p).resolve()
+                # Safety: stay within the project root.
+                if resolved != project_root and project_root not in resolved.parents:
+                    continue
+                key = str(resolved)
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append(resolved)
+            except Exception:
+                continue
+
+        return out
+
     def _make_writable(self, root: Path) -> None:
         """
         Ensure provisioned workspace directories/files are writable.

@@ -2,7 +2,7 @@ import json
 from typing import Optional
 
 from kai.agents.base import BaseAgent
-from kai.agents.utils import AgentType, check_done, generate_tool_schema
+from kai.agents.utils import AgentType, check_done
 from kai.schemas import AgentResponse, MasterContext
 
 

@@ -30,18 +30,19 @@ class ProfilerProcess(BaseProcess[ProfilerInput, ProfilerOutput]):
         ctx = input_data.master_context
         repo_path = ctx.root_path
 
-        dependency_graph: Optional[DependencyGraph] = None
+        dependency_graph: Optional[DependencyGraph] = input_data.dependency_graph
         graph_error: Optional[str] = None
 
-        try:
-            dependency_graph = build_dependency_graph(repo_path)
-        except Exception as e:
-            graph_error = str(e)
-            # Fall back to an empty graph so tools remain available
+        if dependency_graph is None:
             try:
-                dependency_graph = DependencyGraph(repo_path)
-            except Exception:
-                dependency_graph = None
+                dependency_graph = build_dependency_graph(repo_path)
+            except Exception as e:
+                graph_error = str(e)
+                # Fall back to an empty graph so tools remain available
+                try:
+                    dependency_graph = DependencyGraph(repo_path)
+                except Exception:
+                    raise ValueError("Failed to build dependency graph")
 
         agent = ProfilerAgent(
             master_context=ctx,
@@ -54,7 +55,6 @@ class ProfilerProcess(BaseProcess[ProfilerInput, ProfilerOutput]):
         )
 
         response: Optional[AgentResponse] = None
-        prefix = "profiler"
         exception_msg = ""
 
         try:
@@ -67,7 +67,6 @@ class ProfilerProcess(BaseProcess[ProfilerInput, ProfilerOutput]):
 
             # If the agent terminated without registering a manifesto, nudge it.
             if response is not None and response.protocol_manifesto is None:
-                prefix = "profiler_retry"
                 retry_prompt = (
                     "FORMAT REQUIREMENT: You must call register_protocol_manifesto({...}) "
                     "with your findings. Call it now to finish."
@@ -75,12 +74,11 @@ class ProfilerProcess(BaseProcess[ProfilerInput, ProfilerOutput]):
                 response = await agent.chat_with_tools(retry_prompt)
         except Exception as e:
             exception_msg = str(e)
-            prefix = "error_profiler"
         finally:
             try:
                 await agent.close()
-            except Exception:
-                pass
+            except Exception as e:
+                raise e
 
         # Conversation saving handled by dispatcher via state_manager
 

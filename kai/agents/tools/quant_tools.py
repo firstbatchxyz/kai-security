@@ -10,7 +10,7 @@ Provides:
 """
 
 import re
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 
 # Import shared tools
 from kai.agents.tools.tools import (
@@ -25,8 +25,6 @@ from kai.agents.tools.tools import (
     dependency_graph_explain,
     dependency_graph_protocol_entrypoints,
     _get_current_agent,
-    _normalize_agent_path,
-    _get_dependency_graph,
 )
 
 # Import shared test execution tools from state_tools
@@ -35,7 +33,6 @@ from kai.agents.tools.state_tools import (
     run_test,
     patch_file,
     register_exploit,
-    _get_adapter,
 )
 
 
@@ -342,7 +339,7 @@ def compute_boundary_values(
             },
             {
                 "value": str(max_val - 1),
-                "description": f"Max - 1",
+                "description": "Max - 1",
                 "risk": "Overflow on addition of 2+",
             },
         ]

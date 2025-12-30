@@ -93,13 +93,12 @@ class VerifierProcess(BaseProcess[VerifierProcessInput, VerifierProcessOutput]):
 
         except Exception as e:
             exception_msg = str(e)
-            prefix = "error_verifier"
             self.logger.error(f"Verification failed: {e}")
         finally:
             try:
                 await agent.close()
-            except Exception:
-                pass
+            except Exception as e:
+                raise e
             # Cleanup workspace
             workspace_manager.cleanup(workspace_id)
 

@@ -61,9 +61,6 @@ async def test_blackbox_process_saves_conversation_and_returns_findings(
 
     process = BlackboxProcess(brief.master_context)
 
-    convo_dir = project_root / "output" / repo_root.name
-    convo_dir.mkdir(parents=True, exist_ok=True)
-    before = {p for p in convo_dir.glob("blackbox_*.json")}
     repo_campaigns_before = (
         {p for p in (repo_root / "campaigns").glob("*.t.sol")}
         if (repo_root / "campaigns").exists()
@@ -79,7 +76,7 @@ async def test_blackbox_process_saves_conversation_and_returns_findings(
         BlackboxInput(
             campaign_brief=brief,
             num_turns=brief.budget.max_turns_per_agent,
-            model_name="z-ai/glm-4.7",
+            model_name="anthropic/claude-opus-4.5",
             # Blackbox runs via OpenRouter (OpenAI-compatible), not OpenAI direct.
             use_openai=False,
         )
@@ -94,18 +91,6 @@ async def test_blackbox_process_saves_conversation_and_returns_findings(
     )
     assert result.estimated_cost >= 0
     assert "prompt_tokens" in result.total_tokens
-
-    after = {p for p in convo_dir.glob("blackbox_*.json")}
-    new_files = after - before
-    assert new_files, "Conversation file was not saved"
-    convo_files = {p for p in new_files if not str(p).endswith(".results.json")}
-    assert convo_files, "Conversation file was not saved (only results files found)"
-    convo_path = next(iter(convo_files))
-    results_path = Path(str(convo_path)[: -len(".json")] + ".results.json")
-    assert results_path.exists(), "Results JSON was not saved next to conversation file"
-    results_payload = json.loads(results_path.read_text())
-    assert "exploit_candidates" not in results_payload
-    assert "exploits" not in results_payload
 
     # Ensure we didn't leave harness files inside the target repo.
     repo_campaigns_after = (

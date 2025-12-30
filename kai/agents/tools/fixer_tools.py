@@ -21,16 +21,9 @@ from kai.agents.tools.tools import (
     _get_current_agent,
     _normalize_agent_path,
     list_files,
-    dependency_graph_public_entrypoints,
-    dependency_graph_protocol_entrypoints,
-    dependency_graph_slice,
-    dependency_graph_resolve,
-    dependency_graph_loc,
     dependency_graph_snippet,
-    dependency_graph_neighbors,
-    dependency_graph_callers,
 )
-from kai.agents.tools.state_tools import write_and_compile, run_test
+from kai.agents.tools.state_tools import write_and_compile
 
 
 def _ensure_in_scope(abs_path: str) -> Optional[str]:

@@ -7,12 +7,27 @@ framework (Foundry, Hardhat, etc.).
 
 from kai.utils.workspace.base import WorkspaceAdapter
 from kai.utils.workspace.foundry import FoundryWorkspaceAdapter
+from kai.utils.workspace.cargo import CargoWorkspaceAdapter
+from kai.utils.workspace.cmake import CMakeWorkspaceAdapter
 
 __all__ = [
     "WorkspaceAdapter",
     "FoundryWorkspaceAdapter",
+    "CargoWorkspaceAdapter",
+    "CMakeWorkspaceAdapter",
     "get_workspace_adapter",
+    "get_supported_frameworks",
 ]
+
+
+_ADAPTERS = {
+    "foundry": FoundryWorkspaceAdapter,
+    "forge": FoundryWorkspaceAdapter,  # Alias
+    "cargo": CargoWorkspaceAdapter,
+    "cmake": CMakeWorkspaceAdapter,
+}
+
+_adapter_cache: dict = {}
 
 
 def get_workspace_adapter(framework: str) -> WorkspaceAdapter:
@@ -28,13 +43,20 @@ def get_workspace_adapter(framework: str) -> WorkspaceAdapter:
     Raises:
         ValueError: If framework is not supported
     """
-    adapters = {
-        "foundry": FoundryWorkspaceAdapter,
-    }
-
     framework_lower = framework.lower()
-    if framework_lower not in adapters:
-        supported = ", ".join(adapters.keys())
+    if framework_lower in _adapter_cache:
+        return _adapter_cache[framework_lower]
+
+    adapter_cls = _ADAPTERS.get(framework_lower)
+    if adapter_cls is None:
+        supported = ", ".join(sorted(set(_ADAPTERS.keys())))
         raise ValueError(f"Unsupported framework: {framework}. Supported: {supported}")
 
-    return adapters[framework_lower]()
+    adapter = adapter_cls()
+    _adapter_cache[framework_lower] = adapter
+    return adapter
+
+
+def get_supported_frameworks() -> list:
+    """Return supported workspace frameworks."""
+    return sorted(set(_ADAPTERS.keys()))

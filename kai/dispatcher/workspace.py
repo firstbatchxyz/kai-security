@@ -11,7 +11,11 @@ from pathlib import Path
 from typing import Optional
 
 from kai.schemas import MasterContext, Mission, WorkspacePreset
-from kai.utils.workspace import get_workspace_adapter, WorkspaceAdapter
+from kai.utils.workspace import (
+    get_workspace_adapter,
+    get_supported_frameworks,
+    WorkspaceAdapter,
+)
 
 
 class WorkspaceManager:
@@ -45,19 +49,32 @@ class WorkspaceManager:
         Returns:
             Framework name (defaults to "foundry" if not detected)
         """
-        # Check MasterContext first
+        supported = set(get_supported_frameworks())
+
+        # Check MasterContext first (pick first supported workspace framework)
         if master_context and master_context.frameworks:
-            # Return first framework (primary)
-            return master_context.frameworks[0].lower()
+            for fw in master_context.frameworks:
+                fw_lower = str(fw).lower()
+                if fw_lower == "forge":
+                    fw_lower = "foundry"
+                if fw_lower in supported:
+                    return fw_lower
 
         # Detect by config files
-        if (master / "foundry.toml").exists():
+        if (master / "foundry.toml").exists() and "foundry" in supported:
             return "foundry"
-        if (master / "hardhat.config.js").exists() or (
-            master / "hardhat.config.ts"
-        ).exists():
+        if (master / "Cargo.toml").exists() and "cargo" in supported:
+            return "cargo"
+        if (master / "CMakeLists.txt").exists() and "cmake" in supported:
+            return "cmake"
+
+        # Optional: keep heuristics for other ecosystems, but only if adapters exist.
+        if (
+            (master / "hardhat.config.js").exists()
+            or (master / "hardhat.config.ts").exists()
+        ) and "hardhat" in supported:
             return "hardhat"
-        if (master / "truffle-config.js").exists():
+        if (master / "truffle-config.js").exists() and "truffle" in supported:
             return "truffle"
 
         # Default to foundry for Solidity projects

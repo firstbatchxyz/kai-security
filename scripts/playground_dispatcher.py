@@ -9,7 +9,7 @@ Minimal example showing the full Kai v2 pipeline:
 4. Fixing (after all missions complete, generates patches for verified exploits)
 
 Usage:
-    uv run pytho scripts/playground_dispatcher.py --repo-path ./master/your-contracts
+    uv run python scripts/playground_dispatcher.py --repo-path ./master/your-contracts
     uv run python scripts/playground_dispatcher.py --repo-path ./master/your-contracts --model anthropic/claude-3-5-sonnet
 """
 
@@ -25,6 +25,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from kai.agents import settings
 from kai.dispatcher.core import Dispatcher, DispatcherConfig
 from kai.schemas import CampaignBudget
 
@@ -38,9 +39,9 @@ logger = logging.getLogger("playground")
 
 async def run_dispatcher_demo(
     repo_path: str,
-    model: str = "openai/gpt-5.2",
+    model: str = settings.MAIN_DEFAULT_MODEL,
     max_concurrent: int = 2,
-    max_turns: int = 24,
+    max_turns: int = settings.MAX_TOOL_TURNS,
 ) -> None:
     """
     Run the full dispatcher pipeline and print results.
@@ -233,8 +234,8 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="openai/gpt-5.2",
-        help="Model to use (default: openai/gpt-5.2)",
+        default=settings.MAIN_DEFAULT_MODEL,
+        help=f"Model to use (default: {settings.MAIN_DEFAULT_MODEL})",
     )
     parser.add_argument(
         "--concurrent",
@@ -245,8 +246,8 @@ def main():
     parser.add_argument(
         "--max-turns",
         type=int,
-        default=24,
-        help="Max turns per agent (default: 24)",
+        default=settings.MAX_TOOL_TURNS,
+        help=f"Max turns per agent (default: {settings.MAX_TOOL_TURNS})",
     )
 
     args = parser.parse_args()

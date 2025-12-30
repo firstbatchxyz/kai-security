@@ -1,6 +1,7 @@
 import os
 import subprocess
-from typing import Optional, List, Dict, Any
+from pathlib import Path
+from typing import Optional, Dict, Any
 
 # Expose common repo inspection + file editing tools to SetupAgent.
 # The setup prompt expects these primitives for exploration and patching.
@@ -12,23 +13,17 @@ from kai.agents.tools.tools import (
     _get_current_agent as _get_agent,
 )
 from kai.schemas import MasterContext
+from kai.utils.tool_adapters import get_tool_adapter, get_supported_frameworks
 
 __all__ = [
     "read_file",
     "list_files",
     "update_file",
     "create_file",
-    "forge_install",
-    "forge_build",
-    "npm_install",
-    "cargo_install",
-    "cargo_build",
-    "cmake_configure",
-    "cmake_build",
     "git_submodule_update",
     "convert_ssh_to_https_in_gitmodules",
-    "create_minimal_cargo_package",
-    "run_script",
+    "write_and_compile",
+    "run_test",
     "register_master_context",
 ]
 
@@ -80,432 +75,40 @@ def _resolve_working_dir(working_dir: Optional[str] = None) -> str:
         return working_dir
 
 
-def forge_install(package_name: str, working_dir: Optional[str] = None) -> str:
+def _detect_framework(workspace: Path) -> str:
     """
-    Install a package using forge.
+    Best-effort detect a supported tool framework for compilation/testing.
 
-    Args:
-        package_name: The name of the package to install.
-        working_dir: The directory to run the forge install command from.
-                    Useful for repos with multiple sub-projects.
-                    If None, uses the agent's working directory.
-
-    Returns:
-        A string containing the output of the forge install command.
-
-    Examples:
-        # Install in a sub-repository
-        forge_install("openzeppelin/openzeppelin-contracts", working_dir="ve33")
+    Returns one of the supported tool adapter frameworks (e.g., "foundry", "cargo", "cmake").
+    Defaults to "foundry" if nothing matches.
     """
-    try:
-        resolved_dir = _resolve_working_dir(working_dir)
-        result = subprocess.run(
-            ["forge", "install", package_name],
-            check=True,
-            capture_output=True,
-            text=True,
-            cwd=resolved_dir,
-        )
-        return result.stdout + result.stderr
-    except subprocess.CalledProcessError as e:
-        return f"Error: {e.stderr if e.stderr else str(e)}"
-    except Exception as e:
-        return f"Error: {e}"
+    supported = set(get_supported_frameworks())
 
+    # Prefer explicit config files
+    if (workspace / "foundry.toml").exists() and "foundry" in supported:
+        return "foundry"
+    if (workspace / "Cargo.toml").exists() and "cargo" in supported:
+        return "cargo"
+    if (workspace / "CMakeLists.txt").exists() and "cmake" in supported:
+        return "cmake"
 
-def forge_build(
-    working_dir: Optional[str] = None,
-    force: bool = False,
-    skip: Optional[List[str]] = None,
-    sizes: bool = False,
-    names: bool = False,
-    additional_args: Optional[str] = None,
-) -> str:
-    """
-    Build the project using forge.
-
-    Args:
-        working_dir: The directory to run the forge build command from.
-                    Useful for repos with multiple sub-projects.
-                    If None, uses the current working directory.
-        force: If True, clears the cache and recompiles all contracts (--force flag).
-        skip: List of file paths or patterns to skip during compilation.
-              For example: ["test/", "script/Deploy.sol"]
-        sizes: If True, displays contract sizes after compilation (--sizes flag).
-        names: If True, prints compiled contract names (--names flag).
-        additional_args: Any additional forge build arguments as a string.
-                        For example: "--optimize --optimizer-runs 200"
-
-    Returns:
-        A string containing the output of the forge build command.
-
-    Examples:
-        # Build a sub-repository
-        forge_build(working_dir="ve33")
-
-        # Build from current directory
-        forge_build()
-
-        # Force rebuild with sizes
-        forge_build(force=True, sizes=True)
-
-        # Skip test directory
-        forge_build(skip=["test/"])
-
-        # Build with custom optimizer settings
-        forge_build(additional_args="--optimize --optimizer-runs 200")
-    """
-    try:
-        # Build the forge build command
-        cmd = ["forge", "build"]
-
-        # Add force flag if requested
-        if force:
-            cmd.append("--force")
-
-        # Add skip patterns if specified
-        if skip:
-            for pattern in skip:
-                cmd.extend(["--skip", pattern])
-
-        # Add sizes flag if requested
-        if sizes:
-            cmd.append("--sizes")
-
-        # Add names flag if requested
-        if names:
-            cmd.append("--names")
-
-        # Add any additional arguments
-        if additional_args:
-            cmd.extend(additional_args.split())
-
-        resolved_dir = _resolve_working_dir(working_dir)
-        result = subprocess.run(
-            cmd, check=True, capture_output=True, text=True, cwd=resolved_dir
-        )
-        return result.stdout + result.stderr
-    except subprocess.CalledProcessError as e:
-        return f"Error: {e.stderr if e.stderr else str(e)}"
-    except Exception as e:
-        return f"Error: {e}"
-
-
-def npm_install(working_dir: Optional[str] = None) -> str:
-    """
-    Install npm dependencies for the project.
-
-    Many Solidity projects use npm packages (like @openzeppelin/contracts)
-    that need to be installed before compilation.
-
-    Args:
-        working_dir: The directory to run npm install from.
-                    Useful for repos with multiple sub-projects.
-                    If None, uses the current working directory.
-
-    Returns:
-        A string containing the output of the npm install command.
-
-    Examples:
-        # Install npm dependencies in a sub-repository
-        npm_install(working_dir="ve33")
-
-        # Install in current directory
-        npm_install()
-    """
-    try:
-        resolved_dir = _resolve_working_dir(working_dir)
-        result = subprocess.run(
-            ["npm", "install"],
-            check=True,
-            capture_output=True,
-            text=True,
-            cwd=resolved_dir,
-        )
-        return result.stdout + result.stderr
-    except subprocess.CalledProcessError as e:
-        return f"Error: {e.stderr if e.stderr else str(e)}"
-    except Exception as e:
-        return f"Error: {e}"
-
-
-def cargo_install(
-    crate_name: str, version: Optional[str] = None, working_dir: Optional[str] = None
-) -> str:
-    """
-    Install a Rust crate using cargo.
-
-    This is useful for installing command-line tools and dependencies
-    that are distributed as Rust crates.
-
-    Args:
-        crate_name: The name of the crate to install.
-        version: Optional version of the crate to install.
-                If None, installs the latest version.
-        working_dir: The directory to run cargo install from.
-                    If None, uses the current working directory.
-
-    Returns:
-        A string containing the output of the cargo install command.
-
-    Examples:
-        # Install the latest version of a crate
-        cargo_install("ripgrep")
-
-        # Install a specific version
-        cargo_install("cargo-edit", version="0.12.0")
-
-        # Install from a specific directory
-        cargo_install("my-tool", working_dir="rust-project")
-    """
-    try:
-        command = ["cargo", "install", crate_name]
-        if version:
-            command.extend(["--version", version])
-
-        resolved_dir = _resolve_working_dir(working_dir)
-        result = subprocess.run(
-            command, check=True, capture_output=True, text=True, cwd=resolved_dir
-        )
-        return result.stdout + result.stderr
-    except subprocess.CalledProcessError as e:
-        return f"Error: {e.stderr if e.stderr else str(e)}"
-    except Exception as e:
-        return f"Error: {e}"
-
-
-def cargo_build(
-    working_dir: Optional[str] = None,
-    release: bool = False,
-    package: Optional[str] = None,
-    features: Optional[List[str]] = None,
-    all_features: bool = False,
-    no_default_features: bool = False,
-    additional_args: Optional[str] = None,
-) -> str:
-    """
-    Build a Rust project using cargo.
-
-    This compiles the Rust project and all its dependencies. Use this
-    to build Rust-based blockchain clients, smart contracts, or tools.
-
-    Args:
-        working_dir: The directory to run cargo build from.
-                    Useful for repos with multiple Rust projects.
-                    If None, uses the current working directory.
-        release: If True, builds in release mode with optimizations (--release).
-                Default is False (builds in debug mode).
-        package: Optional package name to build (uses -p flag).
-                Useful in workspace projects with multiple packages.
-        features: Optional list of features to enable.
-        all_features: If True, builds with all features enabled (--all-features).
-        no_default_features: If True, disables default features (--no-default-features).
-        additional_args: Any additional cargo build arguments as a string.
-                        For example: "--jobs 4 --verbose"
-
-    Returns:
-        A string containing the output of the cargo build command.
-
-    Examples:
-        # Build in debug mode
-        cargo_build(working_dir="bft")
-
-        # Build in release mode with all features
-        cargo_build(working_dir="bft", release=True, all_features=True)
-
-        # Build specific package
-        cargo_build(package="monad-node", working_dir="bft")
-
-        # Build with specific features
-        cargo_build(features=["jit", "parallel"], working_dir="bft")
-    """
-    try:
-        command = ["cargo", "build"]
-
-        if release:
-            command.append("--release")
-
-        if package:
-            command.extend(["-p", package])
-
-        if features:
-            command.extend(["--features", ",".join(features)])
-
-        if all_features:
-            command.append("--all-features")
-
-        if no_default_features:
-            command.append("--no-default-features")
-
-        if additional_args:
-            command.extend(additional_args.split())
-
-        resolved_dir = _resolve_working_dir(working_dir)
-        result = subprocess.run(
-            command, check=True, capture_output=True, text=True, cwd=resolved_dir
-        )
-        return result.stdout + result.stderr
-    except subprocess.CalledProcessError as e:
-        return f"Error: {e.stderr if e.stderr else str(e)}"
-    except Exception as e:
-        return f"Error: {e}"
-
-
-def cmake_configure(
-    source_dir: str,
-    build_dir: str,
-    options: Optional[dict] = None,
-    generator: Optional[str] = None,
-    additional_args: Optional[str] = None,
-) -> str:
-    """
-    Configure a C++ project using CMake.
-
-    This runs the CMake configuration step, which generates build files
-    for the project. This is the first step in building C++ projects.
-
-    Args:
-        source_dir: The directory containing CMakeLists.txt (source root).
-                   Can be relative to agent's working_dir or absolute.
-        build_dir: The directory where build files will be generated.
-                  Can be relative to agent's working_dir or absolute.
-        options: Optional dictionary of CMake options to set.
-                Keys are option names, values are option values.
-                For example: {"CMAKE_BUILD_TYPE": "Release", "ENABLE_TESTS": "ON"}
-        generator: Optional generator to use (e.g., "Ninja", "Unix Makefiles").
-                  If None, uses CMake's default generator.
-        additional_args: Any additional cmake arguments as a string.
-
-    Returns:
-        A string containing the output of the cmake configure command.
-
-    Examples:
-        # Configure with default settings
-        cmake_configure(source_dir="monad", build_dir="monad/build")
-
-        # Configure with Release build and tests enabled
-        cmake_configure(
-            source_dir="monad",
-            build_dir="monad/build",
-            options={"CMAKE_BUILD_TYPE": "Release", "BUILD_TESTING": "ON"}
-        )
-
-        # Configure with Ninja generator
-        cmake_configure(
-            source_dir="monad",
-            build_dir="monad/build",
-            generator="Ninja"
-        )
-    """
-    try:
-        # Resolve paths relative to agent's working_dir
+    # Shallow fallback signals
+    if any(workspace.glob("*.sol")) and "foundry" in supported:
+        return "foundry"
+    if any(workspace.glob("*.rs")) and "cargo" in supported:
+        return "cargo"
+    if "cmake" in supported:
+        cpp_suffixes = {".cpp", ".cc", ".cxx", ".c", ".h", ".hpp"}
         try:
-            agent = _get_current_agent()
-            if agent:
-                if not os.path.isabs(source_dir):
-                    source_dir = os.path.join(agent.working_dir, source_dir)
-                if not os.path.isabs(build_dir):
-                    build_dir = os.path.join(agent.working_dir, build_dir)
-        except (NameError, TypeError):
+            if any(
+                p.is_file() and p.suffix.lower() in cpp_suffixes
+                for p in workspace.iterdir()
+            ):
+                return "cmake"
+        except Exception:
             pass
 
-        # Create build directory if it doesn't exist
-        os.makedirs(build_dir, exist_ok=True)
-
-        command = ["cmake", source_dir]
-
-        # Add generator if specified
-        if generator:
-            command.extend(["-G", generator])
-
-        # Add options
-        if options:
-            for key, value in options.items():
-                command.append(f"-D{key}={value}")
-
-        # Add additional arguments
-        if additional_args:
-            command.extend(additional_args.split())
-
-        result = subprocess.run(
-            command, check=True, capture_output=True, text=True, cwd=build_dir
-        )
-        return result.stdout + result.stderr
-    except subprocess.CalledProcessError as e:
-        return f"Error: {e.stderr if e.stderr else str(e)}"
-    except Exception as e:
-        return f"Error: {e}"
-
-
-def cmake_build(
-    build_dir: str,
-    target: Optional[str] = None,
-    parallel: bool = True,
-    config: Optional[str] = None,
-    additional_args: Optional[str] = None,
-) -> str:
-    """
-    Build a C++ project using CMake.
-
-    This runs the CMake build step, which compiles the project.
-    Must be run after cmake_configure().
-
-    Args:
-        build_dir: The directory containing the generated build files.
-                  Can be relative to agent's working_dir or absolute.
-        target: Optional specific target to build (e.g., "monad-node", "all", "test").
-               If None, builds the default target.
-        parallel: If True, builds in parallel using available CPU cores.
-                 Default is True.
-        config: Optional build configuration (e.g., "Release", "Debug").
-                Only needed for multi-config generators.
-        additional_args: Any additional cmake --build arguments as a string.
-
-    Returns:
-        A string containing the output of the cmake build command.
-
-    Examples:
-        # Build all targets in parallel
-        cmake_build(build_dir="monad/build")
-
-        # Build specific target
-        cmake_build(build_dir="monad/build", target="monad-node")
-
-        # Build in Release mode without parallelization
-        cmake_build(build_dir="monad/build", parallel=False, config="Release")
-
-        # Build tests
-        cmake_build(build_dir="monad/build", target="test")
-    """
-    try:
-        # Resolve build_dir relative to agent's working_dir
-        try:
-            agent = _get_current_agent()
-            if agent and not os.path.isabs(build_dir):
-                build_dir = os.path.join(agent.working_dir, build_dir)
-        except (NameError, TypeError):
-            pass
-
-        command = ["cmake", "--build", build_dir]
-
-        if target:
-            command.extend(["--target", target])
-
-        if parallel:
-            command.append("--parallel")
-
-        if config:
-            command.extend(["--config", config])
-
-        if additional_args:
-            command.extend(additional_args.split())
-
-        result = subprocess.run(command, check=True, capture_output=True, text=True)
-        return result.stdout + result.stderr
-    except subprocess.CalledProcessError as e:
-        return f"Error: {e.stderr if e.stderr else str(e)}"
-    except Exception as e:
-        return f"Error: {e}"
+    return "foundry"
 
 
 def git_submodule_update(
@@ -629,218 +232,112 @@ def convert_ssh_to_https_in_gitmodules(working_dir: Optional[str] = None) -> str
         return f"Error: {str(e)}"
 
 
-def create_minimal_cargo_package(
-    package_path: str, package_name: str, dependencies: Optional[dict] = None
-) -> str:
+def write_and_compile(
+    file_path: str,
+    content: str,
+    working_dir: Optional[str] = None,
+    timeout: int = 120,
+) -> Dict[str, Any]:
     """
-    Create a minimal Cargo package (Cargo.toml + lib.rs) as a placeholder for missing dependencies.
-
-    This is useful when a workspace depends on a package that failed to clone (e.g., via SSH).
-    Creating a minimal placeholder allows the workspace to at least parse and compile other packages.
+    Write a minimal smoke test/harness into the repo and compile via the detected tool adapter.
 
     Args:
-        package_path: Path where the package should be created (e.g., "bft/manytrace/agent").
-                     Can be relative to agent's working_dir or absolute.
-        package_name: Name of the package (e.g., "agent", "tracing-manytrace").
-        dependencies: Optional dictionary of dependencies to include.
-                     For example: {"serde": "1.0", "tokio": {"version": "1.0", "features": ["full"]}}
-
-    Returns:
-        A string describing the result of the operation.
-
-    Examples:
-        # Create minimal placeholder for missing 'agent' package
-        result = create_minimal_cargo_package(
-            package_path="bft/manytrace/agent",
-            package_name="agent"
-        )
-
-        # Create with dependencies
-        result = create_minimal_cargo_package(
-            package_path="bft/manytrace/tracing-manytrace",
-            package_name="tracing-manytrace",
-            dependencies={"tracing": "0.1"}
-        )
+        file_path: Test file path/name (adapter-normalized). Example: "kai_setup/Smoke.t.sol"
+        content: Full file contents.
+        working_dir: Optional subdirectory to run compilation from (useful for monorepos).
+        timeout: Compilation timeout seconds.
     """
+    agent = _get_current_agent()
+    if agent is None:
+        return {"written": False, "error": "No agent context available"}
+
+    wd = _resolve_working_dir(working_dir)
+    workspace = Path(wd)
+    framework = _detect_framework(workspace)
+    adapter = get_tool_adapter(framework)
+
+    abs_path = adapter.normalize_test_path(file_path, workspace)
+    rel_path = abs_path.relative_to(workspace)
+
     try:
-        # Resolve package_path relative to agent's working_dir
-        if not os.path.isabs(package_path):
-            try:
-                agent = _get_current_agent()
-                if agent:
-                    package_path = os.path.join(agent.working_dir, package_path)
-            except (NameError, TypeError):
-                pass
-
-        # Create the directory structure
-        os.makedirs(package_path, exist_ok=True)
-        src_dir = os.path.join(package_path, "src")
-        os.makedirs(src_dir, exist_ok=True)
-
-        # Create minimal Cargo.toml
-        cargo_toml_path = os.path.join(package_path, "Cargo.toml")
-        cargo_toml_content = f"""[package]
-name = "{package_name}"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-"""
-
-        # Add dependencies if provided
-        if dependencies:
-            cargo_toml_content += "\n[dependencies]\n"
-            for dep_name, dep_value in dependencies.items():
-                if isinstance(dep_value, dict):
-                    # Handle complex dependency specification
-                    cargo_toml_content += f"{dep_name} = {dep_value}\n"
-                else:
-                    # Simple version string
-                    cargo_toml_content += f'{dep_name} = "{dep_value}"\n'
-
-        with open(cargo_toml_path, "w") as f:
-            f.write(cargo_toml_content)
-
-        # Create minimal lib.rs with empty exports
-        lib_rs_path = os.path.join(src_dir, "lib.rs")
-        lib_rs_content = """// Minimal placeholder package created by setup agent
-// This is a stub to allow the workspace to compile
-
-// Re-export commonly used items from this package
-// Add actual implementations as needed
-"""
-
-        with open(lib_rs_path, "w") as f:
-            f.write(lib_rs_content)
-
-        return f"Successfully created minimal Cargo package '{package_name}' at {package_path}"
-
+        abs_path.parent.mkdir(parents=True, exist_ok=True)
+        abs_path.write_text(content, encoding="utf-8")
     except Exception as e:
-        return f"Error creating minimal Cargo package: {str(e)}"
+        return {"written": False, "error": f"Failed to write file: {e}"}
+
+    # Remember match_path for run_test convenience
+    setattr(agent, "_last_setup_match_path", rel_path.as_posix())
+
+    compile_result = adapter.compile(workspace_path=workspace, timeout=int(timeout))
+
+    if not hasattr(agent, "_setup_compile_attempts"):
+        agent._setup_compile_attempts = 0
+    agent._setup_compile_attempts += 1
+
+    return {
+        "written": True,
+        "path": rel_path.as_posix(),
+        "workspace": str(workspace),
+        "framework": framework,
+        "match_path": rel_path.as_posix(),
+        "compiled": compile_result.success,
+        "errors": compile_result.errors,
+        "warnings": compile_result.warnings,
+        "raw_output": compile_result.raw_output,
+        "attempt": agent._setup_compile_attempts,
+    }
 
 
-def run_script(
-    script_path: str, working_dir: Optional[str] = None, timeout: int = 300
-) -> dict:
+def run_test(
+    match_contract: Optional[str] = None,
+    match_test: Optional[str] = None,
+    verbosity: int = 2,
+    additional_args: Optional[str] = None,
+    framework_kwargs: Optional[Dict[str, Any]] = None,
+    working_dir: Optional[str] = None,
+    timeout: int = 300,
+) -> Dict[str, Any]:
     """
-    Run an existing shell script in the repository (READ-ONLY execution).
+    Run tests via the detected tool adapter.
 
-    This tool can ONLY run scripts that already exist in the repository.
-    It CANNOT create, modify, or delete files. This is useful for running
-    setup scripts like install.sh, configure.sh, build.sh, etc.
-
-    IMPORTANT RESTRICTIONS:
-    - Can only run scripts that exist in the repository
-    - Cannot create, edit, or delete ANY files
-    - Cannot run arbitrary commands - must be a script file
-    - Script must be readable and executable
-
-    Args:
-        script_path: Path to the script file to run (relative to working_dir).
-                    Must be an existing file in the repository.
-        working_dir: The directory to run the script from.
-                    If None, uses the current working directory.
-        timeout: Maximum execution time in seconds. Default is 300 (5 minutes).
-                Set higher for long-running build scripts.
-
-    Returns:
-        A dictionary containing:
-        - stdout: The standard output from the script
-        - stderr: The standard error from the script
-        - returncode: The exit code (0 for success, non-zero for failure)
-        - success: Boolean indicating if the script ran successfully
-
-    Examples:
-        # Run a setup script in the repo
-        result = run_script("scripts/install.sh")
-
-        # Run a build script with longer timeout
-        result = run_script("build.sh", working_dir="monad", timeout=600)
-
-        # Run a configure script
-        result = run_script("configure.sh", working_dir="bft")
-
-    Security Notes:
-        - This tool can only execute existing scripts
-        - It cannot modify files or create new ones
-        - The sandbox prevents file write operations
-        - Use with caution on untrusted repositories
+    For Foundry, this supports `framework_kwargs={"match_path": "<relpath>"}` and will
+    default to the last match_path produced by write_and_compile.
     """
-    try:
-        # Resolve working directory
-        if working_dir is None:
-            try:
-                agent = _get_current_agent()
-                working_dir = agent.working_dir if agent else os.getcwd()
-            except (NameError, TypeError):
-                working_dir = os.getcwd()
-        else:
-            # Resolve relative paths relative to agent's working_dir
-            if not os.path.isabs(working_dir):
-                try:
-                    agent = _get_current_agent()
-                    if agent:
-                        working_dir = os.path.join(agent.working_dir, working_dir)
-                except (NameError, TypeError):
-                    pass
+    agent = _get_current_agent()
+    if agent is None:
+        return {"success": False, "error": "No agent context available"}
 
-        # Resolve script path
-        if not os.path.isabs(script_path):
-            script_path = os.path.join(working_dir, script_path)
+    wd = _resolve_working_dir(working_dir)
+    workspace = Path(wd)
+    framework = _detect_framework(workspace)
+    adapter = get_tool_adapter(framework)
 
-        # Validate that the script exists
-        if not os.path.exists(script_path):
-            return {
-                "stdout": "",
-                "stderr": f"Error: Script '{script_path}' does not exist",
-                "returncode": -1,
-                "success": False,
-            }
+    fw = dict(framework_kwargs or {})
+    if "match_path" not in fw:
+        last_mp = getattr(agent, "_last_setup_match_path", None)
+        if isinstance(last_mp, str) and last_mp.strip():
+            fw["match_path"] = last_mp.strip()
 
-        if not os.path.isfile(script_path):
-            return {
-                "stdout": "",
-                "stderr": f"Error: '{script_path}' is not a file",
-                "returncode": -1,
-                "success": False,
-            }
+    test_result = adapter.run_test(
+        workspace_path=workspace,
+        match_contract=match_contract,
+        match_test=match_test,
+        verbosity=int(verbosity),
+        timeout=int(timeout),
+        additional_args=additional_args,
+        framework_kwargs=fw or None,
+    )
 
-        # Make script executable if it isn't already
-        try:
-            os.chmod(script_path, os.stat(script_path).st_mode | 0o111)
-        except Exception:
-            pass  # If we can't make it executable, the subprocess will fail with a clear error
+    if not hasattr(agent, "_setup_test_attempts"):
+        agent._setup_test_attempts = 0
+    agent._setup_test_attempts += 1
 
-        # Run the script
-        result = subprocess.run(
-            ["/bin/bash", script_path],
-            capture_output=True,
-            text=True,
-            cwd=working_dir,
-            timeout=timeout,
-        )
-
-        return {
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "returncode": result.returncode,
-            "success": result.returncode == 0,
-        }
-
-    except subprocess.TimeoutExpired:
-        return {
-            "stdout": "",
-            "stderr": f"Error: Script execution timed out after {timeout} seconds",
-            "returncode": -1,
-            "success": False,
-        }
-    except Exception as e:
-        return {
-            "stdout": "",
-            "stderr": f"Error: {str(e)}",
-            "returncode": -1,
-            "success": False,
-        }
+    payload = test_result.to_dict()
+    payload["attempt"] = agent._setup_test_attempts
+    payload["workspace"] = str(workspace)
+    payload["framework"] = framework
+    payload["framework_kwargs"] = fw
+    return payload
 
 
 def register_master_context(master_context: Dict[str, Any]) -> Dict[str, Any]:
@@ -856,10 +353,10 @@ def register_master_context(master_context: Dict[str, Any]) -> Dict[str, Any]:
     - src_path (str, optional): Path to source contracts.
     - lib_path (str, optional): Path to libraries/dependencies.
     - test_path (str, optional): Path to tests.
-    - build_commands (List[dict], optional): List of commands to build the project.
-      Each command dict: {"command": str, "order_of_execution": int}
-    - test_commands (List[dict], optional): List of commands to run tests.
-      Each command dict: {"command": str, "order_of_execution": int}
+    - build_script_path (str, optional): Repo-relative path to build script.
+    - build_script (str, optional): Full build script contents.
+    - test_script_path (str, optional): Repo-relative path to test script.
+    - test_script (str, optional): Full test script contents.
     - adapter (str, optional): Domain adapter, default "solidity".
 
     Example:

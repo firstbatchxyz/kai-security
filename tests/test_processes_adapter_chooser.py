@@ -4,7 +4,7 @@ import pytest  # type: ignore[import-not-found]
 
 from kai.processes.adapter_chooser import AdapterChooserProcess
 from kai.schemas import AdapterChooserInput, Framework, Language
-from kai.tests.test_processes_profiler import (
+from tests.test_processes_profiler import (
     _load_master_context,
     _normalize_master_context_paths,
 )
