@@ -807,10 +807,11 @@ class CampaignBrief(BaseModel):
     Self-contained: agents can execute with only this + workspace.
     
     MongoDB storage excludes: scope, master_context (stored in S3)
-    MongoDB fields use camelCase (campaignId, agentTypes, workspacePreset, etc.)
+    MongoDB uses 'id' field (via serialization_alias) instead of 'campaignId'
+    Other MongoDB fields use camelCase (agentTypes, workspacePreset, etc.)
     """
 
-    campaign_id: str = Field(serialization_alias="campaignId")
+    campaign_id: str = Field(serialization_alias="id")
     mode: CampaignMode = CampaignMode.INVARIANT_BOUNDED
     agent_types: List[MissionAgentType] = Field(default_factory=list, serialization_alias="agentTypes")
     framework: Optional[str] = None

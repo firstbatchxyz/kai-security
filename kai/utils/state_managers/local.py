@@ -69,7 +69,9 @@ class LocalStateManager(KaiStateManager):
     ) -> None:
         return None
 
-    async def save_campaigns(self, campaigns: List[CampaignBrief]) -> bool:
+    async def save_campaigns(
+        self, campaigns: List[CampaignBrief], invariant_id_map: Optional[Dict[str, str]] = None
+    ) -> bool:
         return True
 
     async def save_dependency_graph(self, graph_data: Dict[str, Any]) -> bool:
@@ -84,8 +86,8 @@ class LocalStateManager(KaiStateManager):
     async def save_master_context(self, context: Any) -> bool:
         return True
 
-    async def save_invariants(self, invariants: List[Invariant]) -> bool:
-        return True
+    async def save_invariants(self, invariants: List[Invariant]) -> Dict[str, str]:
+        return {}
 
     async def save_missions(self, missions: List[Mission]) -> bool:
         return True
