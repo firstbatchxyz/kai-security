@@ -194,7 +194,7 @@ def add_observation(
     mission_id = getattr(agent, "execution_id", None) or agent.agent_id
 
     obs = Observation(
-        worker_id=agent.agent_id,
+        agent_id=agent.agent_id,
         mission_id=mission_id,
         description=description,
         affected_functions=affected_functions,

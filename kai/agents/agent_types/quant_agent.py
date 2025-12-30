@@ -56,14 +56,14 @@ class QuantAgentResult:
         """Return True if any exploit was found."""
         return len(self.exploits) > 0
 
-    def to_exploit_candidates(self, worker_id: str) -> List[ExploitCandidate]:
+    def to_exploit_candidates(self, agent_id: str) -> List[ExploitCandidate]:
         """Convert all exploits to ExploitCandidates."""
         candidates = []
         for f in self.exploits:
             candidates.append(
                 ExploitCandidate(
                     mission_id=self.mission_id,
-                    worker_id=worker_id,
+                    agent_id=agent_id,
                     invariant_id=f.get("invariant_id", ""),
                     mechanism=f.get("mechanism", "numeric_violation"),
                     poc_code=f.get("poc_code", ""),

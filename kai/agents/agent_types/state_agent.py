@@ -56,7 +56,7 @@ class StateAgentResult:
         """Return True if any exploit was found."""
         return len(self.exploits) > 0
 
-    def to_exploit_candidates(self, worker_id: str) -> List[ExploitCandidate]:
+    def to_exploit_candidates(self, agent_id: str) -> List[ExploitCandidate]:
         """Convert all exploits to ExploitCandidates.
 
         Note: compiled is set to False here - the Verifier will run the test
@@ -67,7 +67,7 @@ class StateAgentResult:
             candidates.append(
                 ExploitCandidate(
                     mission_id=self.mission_id,
-                    worker_id=worker_id,
+                    agent_id=agent_id,
                     invariant_id=f.get("invariant_id", ""),
                     mechanism=f.get("mechanism", "state_violation"),
                     poc_code=f.get("poc_code", ""),
@@ -77,8 +77,7 @@ class StateAgentResult:
                     compiled=False,  # Verifier will validate
                     logs=[],
                 )
-            )
-        return candidates
+            )\n        return candidates
 
 
 class StateAgent(BaseAgent):

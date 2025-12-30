@@ -120,7 +120,7 @@ def submit_verdict(
     verdict = Verdict(
         mission_id=exploit_candidate.mission_id,
         invariant_id=exploit_candidate.invariant_id,
-        worker_id=exploit_candidate.worker_id,
+        agent_id=exploit_candidate.agent_id,
         is_valid=is_valid,
         severity=verdict_severity,
         uses_mock_contracts=uses_mock_contracts,

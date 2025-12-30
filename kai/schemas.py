@@ -107,12 +107,12 @@ class AgentRecord(BaseModel):
     Record of an agent execution for MongoDB tracking.
     
     Created when an agent starts, updated when it completes.
-    The _id in MongoDB equals the worker_id used in exploits collection.
+    The _id in MongoDB equals the agentId used in exploits collection.
     
     MongoDB fields use camelCase (executionId, agentType, completedAt)
     """
     
-    agent_id: str = Field(serialization_alias="agentId")  # Same as worker_id in exploits
+    agent_id: str = Field(serialization_alias="agentId")  # Same as agentId in exploits
     execution_id: Optional[str] = Field(default=None, serialization_alias="executionId")
     agent_type: str = Field(serialization_alias="agentType")  # AgentType enum value
     created_at: Optional[Any] = Field(default=None, serialization_alias="createdAt")  # datetime
@@ -242,10 +242,10 @@ class Observation(BaseModel):
 
     Gets refined by LLM into a tentative Invariant.
     
-    MongoDB fields use camelCase (workerId, missionId, affectedFunctions, etc.)
+    MongoDB fields use camelCase (agentId, missionId, affectedFunctions, etc.)
     """
 
-    worker_id: str = Field(serialization_alias="workerId")
+    agent_id: str = Field(serialization_alias="agentId")  # Renamed from worker_id
     mission_id: str = Field(serialization_alias="missionId")
     description: str  # "Function X always reverts when called by any actor"
     affected_functions: List[str] = Field(default_factory=list, serialization_alias="affectedFunctions")
@@ -264,14 +264,15 @@ class ExploitCandidate(BaseModel):
 
     Sent to Verifier for confirmation.
     
-    MongoDB fields use camelCase (missionId, workerId, invariantId, etc.)
+    MongoDB fields use camelCase (missionId, agentId, invariantId, etc.)
+    Large fields (pocCode, fixes) stored in S3, not MongoDB
     """
 
     mission_id: str = Field(serialization_alias="missionId")
-    worker_id: str = Field(serialization_alias="workerId")
+    agent_id: str = Field(serialization_alias="agentId")  # Renamed from worker_id
     invariant_id: str = Field(serialization_alias="invariantId")  # Which invariant this claims to violate
     mechanism: str  # "reentrancy", "access_control_bypass", etc.
-    poc_code: str = Field(serialization_alias="pocCode")  # The exploit contract/test code
+    poc_code: str = Field(serialization_alias="pocCode")  # The exploit contract/test code (stored in S3)
     target_file: str = Field(serialization_alias="targetFile")
     target_function: str = Field(serialization_alias="targetFunction")
     description: str
@@ -279,21 +280,22 @@ class ExploitCandidate(BaseModel):
     logs: List[str] = Field(default_factory=list)
     # Verdict fields (populated after verification)
     severity: Optional[str] = None
-    verdict: Optional[Dict[str, Any]] = None  # {isValid: bool}
-    fixes: List["Fix"] = Field(default_factory=list)
+    verdict: Optional[Dict[str, Any]] = None  # {isValid: bool, fixes: [{fixId, canonicalDiff, filesChanged}]}
+    fixes: List["Fix"] = Field(default_factory=list)  # Stored in S3 as JSON array
 
     @model_validator(mode="before")
     @classmethod
     def coerce_legacy_shapes(cls, values: Any) -> Any:
         """
         Backwards compatibility:
-        - agent_id -> worker_id
+        - worker_id -> agent_id (new schema)
         """
         if not isinstance(values, dict):
             return values
         data = dict(values)
-        if "worker_id" not in data and "agent_id" in data:
-            data["worker_id"] = data.get("agent_id")
+        # Support legacy worker_id field
+        if "agent_id" not in data and "worker_id" in data:
+            data["agent_id"] = data.get("worker_id")
         return data
 
 
@@ -319,7 +321,7 @@ class Verdict(BaseModel):
     # Reference to original finding
     mission_id: str = Field(serialization_alias="missionId")
     invariant_id: str = Field(serialization_alias="invariantId")
-    worker_id: str = Field(serialization_alias="workerId")
+    agent_id: str = Field(serialization_alias="agentId")  # Renamed from worker_id
 
     # Core verdict
     is_valid: bool = Field(serialization_alias="isValid")  # Is this a real, exploitable vulnerability?
