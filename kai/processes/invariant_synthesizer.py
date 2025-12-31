@@ -108,7 +108,7 @@ class InvariantSynthesizerProcess(
                     draft = agent._finalized_invariant_draft
 
                     # Create grounded invariant
-                    inv_id = self._generate_id(obs, target_ids)
+                    inv_label = self._generate_label(obs, target_ids)
                     target_function_ids = sorted(list(target_ids))
                     target_var_ids = self._derive_target_var_ids(
                         target_function_ids, engine
@@ -123,7 +123,7 @@ class InvariantSynthesizerProcess(
                         inv_type = InvariantType.OTHER
 
                     invariant = Invariant(
-                        id=inv_id,
+                        label=inv_label,
                         type=inv_type,
                         rule=draft.get("rule", ""),
                         explanation=draft.get("explanation", ""),
@@ -279,9 +279,9 @@ class InvariantSynthesizerProcess(
 
         return target_ids
 
-    def _generate_id(self, obs: Observation, target_ids: Set[str]) -> str:
+    def _generate_label(self, obs: Observation, target_ids: Set[str]) -> str:
         """
-        Generate a deterministic ID based on description and targets.
+        Generate a deterministic label based on description and targets.
         """
         sorted_targets = sorted(list(target_ids))
         raw = f"{obs.description}|{'|'.join(sorted_targets)}"

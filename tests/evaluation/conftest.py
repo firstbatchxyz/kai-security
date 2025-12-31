@@ -40,7 +40,7 @@ def real_invariants() -> Dict[str, Invariant]:
 
     invariants_list = data.get("invariants", data) if isinstance(data, dict) else data
 
-    return {inv_data["id"]: Invariant(**inv_data) for inv_data in invariants_list}
+    return {inv_data["label"]: Invariant(**inv_data) for inv_data in invariants_list}
 
 
 @pytest.fixture

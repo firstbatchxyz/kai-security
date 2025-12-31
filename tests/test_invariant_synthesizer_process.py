@@ -84,4 +84,4 @@ async def test_invariant_synthesizer_process_real_run():
             assert inv.source == "observation_llm"
             assert inv.rule
             assert inv.type
-            assert inv.id.startswith("INV_OBS_")
+            assert inv.label.startswith("INV_OBS_")

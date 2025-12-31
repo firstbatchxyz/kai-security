@@ -108,7 +108,7 @@ async def run_dispatcher_demo(
         for inv in list(dispatcher.invariants.values())[:5]:
             inv_type = inv.type.value if inv.type else "?"
             rule_preview = inv.rule[:60] + "..." if len(inv.rule) > 60 else inv.rule
-            print(f"    [{inv_type}] {inv.id}")
+            print(f"    [{inv_type}] {inv.label}")
             print(f"        {rule_preview}")
         if len(dispatcher.invariants) > 5:
             print(f"    ... and {len(dispatcher.invariants) - 5} more")

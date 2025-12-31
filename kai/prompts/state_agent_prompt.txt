@@ -55,7 +55,7 @@ in the codebase and test that concrete scenario - do NOT create a fake implement
 ## Context
 
 ### Target Invariant
-- **ID:** {{invariant_id}}
+- **Label:** {{invariant_label}}
 - **Type:** {{invariant_type}}
 - **Rule:** {{invariant_rule}}
 - **Explanation:** {{invariant_explanation}}

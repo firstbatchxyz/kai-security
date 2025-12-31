@@ -1,7 +1,7 @@
 {
   "invariants": [
     {
-      "id": "INV_ACCESS_MINT_ONLY_MINTER_ROLE",
+      "label": "INV_ACCESS_MINT_ONLY_MINTER_ROLE",
       "type": "access",
       "rule": "Calls to unit:1197 and unit:1294 MUST revert when msg.sender does not have var:EthenaMinting.MINTER_ROLE.",
       "explanation": "If mint endpoints are callable by unprivileged accounts, USDe can be minted without backing/hedging, breaking solvency assumptions. This is testable by attempting unit:1197/unit:1294 from an address without the role and expecting a revert.",
@@ -22,7 +22,7 @@
       "chunk_id": "chunk_0"
     },
     {
-      "id": "INV_ACCESS_REDEEM_ONLY_REDEEMER_ROLE",
+      "label": "INV_ACCESS_REDEEM_ONLY_REDEEMER_ROLE",
       "type": "access",
       "rule": "Calls to unit:1377 MUST revert when msg.sender does not have var:EthenaMinting.REDEEMER_ROLE.",
       "explanation": "If redeem can be executed by untrusted callers, they may drain collateral paths or create unhedged state transitions. This is verifiable by negative tests calling unit:1377 from an address without the role.",
@@ -42,7 +42,7 @@
       "chunk_id": "chunk_0"
     },
     {
-      "id": "INV_ACCESS_GATEKEEPER_DISABLE_MINT_REDEEM",
+      "label": "INV_ACCESS_GATEKEEPER_DISABLE_MINT_REDEEM",
       "type": "access",
       "rule": "Calls to unit:1421 MUST revert when msg.sender does not have var:EthenaMinting.GATEKEEPER_ROLE.",
       "explanation": "The disable switch is a critical emergency control; if callable by anyone it becomes a protocol-wide DoS vector. This is verifiable by role-negative tests.",
@@ -60,7 +60,7 @@
       "chunk_id": "chunk_0"
     },
     {
-      "id": "INV_ORDERING_DISABLEMENT_ENFORCED",
+      "label": "INV_ORDERING_DISABLEMENT_ENFORCED",
       "type": "ordering",
       "rule": "After a successful call to unit:1421, subsequent calls to unit:1197, unit:1294, and unit:1377 MUST revert until re-enabled (i.e., disable is effective for mint and redeem).",
       "explanation": "An emergency stop that does not actually stop mint/redeem is a false sense of safety and can allow continued loss during incidents. This is testable by calling unit:1421 then attempting mint/redeem and expecting reverts.",
@@ -83,7 +83,7 @@
       "chunk_id": "chunk_0"
     },
     {
-      "id": "INV_CONSERVATION_MINTEDPERBLOCK_WRITES_ONLY_ON_MINT_PATHS",
+      "label": "INV_CONSERVATION_MINTEDPERBLOCK_WRITES_ONLY_ON_MINT_PATHS",
       "type": "conservation",
       "rule": "var:EthenaMinting.mintedPerBlock MUST NOT change in any externally callable execution path except via unit:1197 or unit:1294.",
       "explanation": "If other functions can mutate mintedPerBlock, per-block issuance accounting can be bypassed or corrupted, enabling excess minting or permanent DoS. This is verifiable with invariant/fuzz testing that snapshots mintedPerBlock before and after calls to other functions (e.g., unit:1444/unit:1481/unit:1504/unit:1608/unit:1421) and asserts no change.",
@@ -107,7 +107,7 @@
       "chunk_id": "chunk_0"
     },
     {
-      "id": "INV_CONSERVATION_REDEEMEDPERBLOCK_WRITES_ONLY_ON_REDEEM_PATH",
+      "label": "INV_CONSERVATION_REDEEMEDPERBLOCK_WRITES_ONLY_ON_REDEEM_PATH",
       "type": "conservation",
       "rule": "var:EthenaMinting.redeemedPerBlock MUST NOT change in any externally callable execution path except via unit:1377.",
       "explanation": "If redeemedPerBlock can be changed elsewhere, redemption throttling can be bypassed or made to incorrectly block redemptions. This is verifiable by snapshotting redeemedPerBlock around calls to non-redeem functions and asserting no change.",
@@ -130,7 +130,7 @@
       "chunk_id": "chunk_0"
     },
     {
-      "id": "INV_ACCESS_COLLATERAL_TRANSFER_ONLY_COLLATERAL_MANAGER",
+      "label": "INV_ACCESS_COLLATERAL_TRANSFER_ONLY_COLLATERAL_MANAGER",
       "type": "access",
       "rule": "Calls to unit:1571 MUST revert when msg.sender does not have var:EthenaMinting.COLLATERAL_MANAGER_ROLE.",
       "explanation": "transferToCustody moves protocol-controlled collateral; if untrusted callers can execute it, they can exfiltrate funds. This is verifiable via negative role tests.",
@@ -150,7 +150,7 @@
       "chunk_id": "chunk_0"
     },
     {
-      "id": "INV_OTHER_CUSTODY_DESTINATION_MUST_BE_WHITELISTED",
+      "label": "INV_OTHER_CUSTODY_DESTINATION_MUST_BE_WHITELISTED",
       "type": "other",
       "rule": "unit:1571 MUST only succeed when the destination custodian is present in var:EthenaMinting._custodianAddresses.",
       "explanation": "A custody-transfer function that allows arbitrary destinations enables direct theft even if only callable by a role (role compromise is a key threat model). This is verifiable by attempting transfers to a non-whitelisted address and expecting a revert, and to a whitelisted one and expecting success.",
@@ -169,7 +169,7 @@
       "chunk_id": "chunk_0"
     },
     {
-      "id": "INV_ORDERING_SUPPORTED_ASSET_ADD_REMOVE_REFLECTS_QUERY",
+      "label": "INV_ORDERING_SUPPORTED_ASSET_ADD_REMOVE_REFLECTS_QUERY",
       "type": "ordering",
       "rule": "After unit:1714 adds an asset, unit:1608 MUST return true for that asset; after unit:1594 removes an asset, unit:1608 MUST return false for that asset.",
       "explanation": "The supported-asset set is a critical allowlist for minting/redeeming collateral. If add/remove does not reflect in the query path, the protocol can unintentionally accept unsupported collateral or reject intended collateral, causing solvency or availability failures. This is verifiable with stateful property tests around add/remove/query.",
@@ -191,7 +191,7 @@
       "chunk_id": "chunk_0"
     },
     {
-      "id": "INV_ORDERING_DELEGATED_SIGNER_CONFIRMATION_REQUIRED",
+      "label": "INV_ORDERING_DELEGATED_SIGNER_CONFIRMATION_REQUIRED",
       "type": "ordering",
       "rule": "A call to unit:1481 MUST NOT set var:EthenaMinting.delegatedSigner for an account unless that account previously initiated delegation via unit:1444, and unit:1504 MUST clear the same account\u2019s var:EthenaMinting.delegatedSigner state.",
       "explanation": "Delegated signing is commonly used to authorize sensitive off-chain signed operations. If confirmation can be completed without prior initiation, or if removal does not clear state, an attacker may bind themselves as a delegate or preserve stale authorization. This is verifiable using two accounts and checking that only the initiator\u2019s delegation can be confirmed/removed.",
@@ -211,7 +211,7 @@
       "chunk_id": "chunk_0"
     },
     {
-      "id": "INV_OTHER_ENA_MINT_WAIT_PERIOD_ENFORCED",
+      "label": "INV_OTHER_ENA_MINT_WAIT_PERIOD_ENFORCED",
       "type": "ordering",
       "rule": "unit:153 MUST revert if called before var:ENA.MINT_WAIT_PERIOD has elapsed since var:ENA.lastMintTimestamp; upon successful mint, var:ENA.lastMintTimestamp MUST be updated to the current block timestamp and MUST be monotonically non-decreasing.",
       "explanation": "If the mint wait period or timestamp update is bypassable, ENA inflation can be accelerated beyond intended governance constraints. This is verifiable by calling unit:153 twice within the wait period and expecting the second call to revert, and by checking lastMintTimestamp monotonicity on successes.",
@@ -231,7 +231,7 @@
       "chunk_id": "chunk_0"
     },
     {
-      "id": "INV_ADMIN_TRANSFER_ONLY_CURRENT_ADMIN_CAN_INITIATE",
+      "label": "INV_ADMIN_TRANSFER_ONLY_CURRENT_ADMIN_CAN_INITIATE",
       "type": "access",
       "rule": "Calls to unit:2518 must revert unless msg.sender is the current admin reflected by unit:2607 (i.e., based on var:SingleAdminAccessControl._currentDefaultAdmin) and the caller has var:AccessControl.DEFAULT_ADMIN_ROLE.",
       "explanation": "If a non-admin can set var:SingleAdminAccessControl._pendingDefaultAdmin via unit:2518, they can seize control of all privileged operations guarded by var:AccessControl.DEFAULT_ADMIN_ROLE.",
@@ -252,7 +252,7 @@
       "chunk_id": "chunk_1"
     },
     {
-      "id": "INV_ADMIN_ACCEPT_ONLY_PENDING_ADMIN_CAN_FINALIZE",
+      "label": "INV_ADMIN_ACCEPT_ONLY_PENDING_ADMIN_CAN_FINALIZE",
       "type": "access",
       "rule": "Calls to unit:2536 must revert unless msg.sender equals var:SingleAdminAccessControl._pendingDefaultAdmin and the admin role var:AccessControl.DEFAULT_ADMIN_ROLE is transferred accordingly.",
       "explanation": "If anyone other than the pending admin can call unit:2536, an attacker can front-run/steal the admin transfer and gain privileged control.",
@@ -271,7 +271,7 @@
       "chunk_id": "chunk_1"
     },
     {
-      "id": "INV_ADMIN_TRANSFER_STATE_MACHINE_CONSISTENCY",
+      "label": "INV_ADMIN_TRANSFER_STATE_MACHINE_CONSISTENCY",
       "type": "ordering",
       "rule": "If unit:2518 succeeds setting var:SingleAdminAccessControl._pendingDefaultAdmin = P, then unit:2536 must (a) succeed only when msg.sender == P and (b) result in unit:2607 returning P as the owner (i.e., based on var:SingleAdminAccessControl._currentDefaultAdmin).",
       "explanation": "This enforces a 2-step admin transfer without gaps or unexpected intermediate states that could lock governance or enable takeover.",
@@ -292,7 +292,7 @@
       "chunk_id": "chunk_1"
     },
     {
-      "id": "INV_ROLE_ADMIN_ONLY_CAN_GRANT_OR_REVOKE",
+      "label": "INV_ROLE_ADMIN_ONLY_CAN_GRANT_OR_REVOKE",
       "type": "access",
       "rule": "Calls to unit:2557 and unit:2578 must revert unless msg.sender has var:AccessControl.DEFAULT_ADMIN_ROLE.",
       "explanation": "If non-admins can grant/revoke roles, they can escalate privileges (including mint/redeem admin paths) and compromise funds and solvency.",
@@ -311,7 +311,7 @@
       "chunk_id": "chunk_1"
     },
     {
-      "id": "INV_ETHENA_MINTING_CUSTODIAN_ADD_RESTRICTED",
+      "label": "INV_ETHENA_MINTING_CUSTODIAN_ADD_RESTRICTED",
       "type": "access",
       "rule": "Calls to unit:1752 must revert unless msg.sender has var:AccessControl.DEFAULT_ADMIN_ROLE; successful calls must only expand the effective allowlist referenced by var:EthenaMinting._custodianAddresses for unit:1999.",
       "explanation": "Custodian allowlist integrity is critical: if anyone can add to var:EthenaMinting._custodianAddresses, route checks can be bypassed and assets redirected.",
@@ -331,7 +331,7 @@
       "chunk_id": "chunk_1"
     },
     {
-      "id": "INV_MINTING_VERIFY_ROUTE_ENFORCES_RATIO_AND_CUSTODIANS",
+      "label": "INV_MINTING_VERIFY_ROUTE_ENFORCES_RATIO_AND_CUSTODIANS",
       "type": "other",
       "rule": "unit:1999 must return failure/revert for any route that (a) sends funds to addresses not in var:EthenaMinting._custodianAddresses or (b) does not satisfy the minimum ratio constraint encoded by var:EthenaMinting.ROUTE_REQUIRED_RATIO.",
       "explanation": "Route verification is a core safety check ensuring backing assets are sent to approved custodians and in required proportions; bypass implies theft or under-collateralization risk.",
@@ -350,7 +350,7 @@
       "chunk_id": "chunk_1"
     },
     {
-      "id": "INV_DOMAIN_SEPARATOR_STABILITY_WHEN_CHAINID_MATCHES",
+      "label": "INV_DOMAIN_SEPARATOR_STABILITY_WHEN_CHAINID_MATCHES",
       "type": "other",
       "rule": "If the runtime chain id equals var:EthenaMinting._chainId, then unit:1770 must equal var:EthenaMinting._domainSeparator and must not change across calls unless var:EthenaMinting._chainId changes.",
       "explanation": "EIP-712 domain separation must be stable to prevent signature malleability/invalidations and must correctly track chain-id to prevent cross-chain replay.",
@@ -369,7 +369,7 @@
       "chunk_id": "chunk_1"
     },
     {
-      "id": "INV_ORDER_HASHING_ENCODING_DETERMINISM",
+      "label": "INV_ORDER_HASHING_ENCODING_DETERMINISM",
       "type": "other",
       "rule": "For the same order input, unit:1822 and unit:1792 must be deterministic (same input => same output), and unit:1822 must incorporate var:EthenaMinting.ORDER_TYPE as part of the encoded payload.",
       "explanation": "Non-deterministic hashing/encoding breaks signature verification and can enable signature substitution or unexpected execution under different encodings.",
@@ -388,7 +388,7 @@
       "chunk_id": "chunk_1"
     },
     {
-      "id": "INV_VERIFY_ORDER_DEPENDS_ON_DELEGATED_SIGNER",
+      "label": "INV_VERIFY_ORDER_DEPENDS_ON_DELEGATED_SIGNER",
       "type": "access",
       "rule": "unit:1908 must only accept signatures authorized by var:EthenaMinting.delegatedSigner; after var:EthenaMinting.delegatedSigner is changed, signatures valid under the prior value must no longer validate under unit:1908.",
       "explanation": "If unit:1908 does not strictly bind to var:EthenaMinting.delegatedSigner, attackers can replay old authorizations or validate unauthorized orders.",
@@ -406,7 +406,7 @@
       "chunk_id": "chunk_1"
     },
     {
-      "id": "INV_STAKEDUSDE_TRANSFER_IN_REWARDS_NON_DECREASING_TOTAL_ASSETS",
+      "label": "INV_STAKEDUSDE_TRANSFER_IN_REWARDS_NON_DECREASING_TOTAL_ASSETS",
       "type": "conservation",
       "rule": "If unit:2834 succeeds, then a call to unit:3013 immediately after must return a value greater than or equal to its value immediately before unit:2834.",
       "explanation": "Reward deposits should not reduce accounting assets; a decrease suggests accounting corruption, unexpected token drains, or share/asset manipulation.",
@@ -425,7 +425,7 @@
       "chunk_id": "chunk_1"
     },
     {
-      "id": "INV_STAKEDUSDE_REWARD_DEPOSIT_ACCESS_CONTROLLED",
+      "label": "INV_STAKEDUSDE_REWARD_DEPOSIT_ACCESS_CONTROLLED",
       "type": "access",
       "rule": "unit:2834 must revert unless msg.sender has var:StakedUSDe.REWARDER_ROLE.",
       "explanation": "If anyone can call unit:2834, they may grief accounting, manipulate reward timing, or trigger unexpected token transfers/approvals.",
@@ -443,7 +443,7 @@
       "chunk_id": "chunk_1"
     },
     {
-      "id": "INV_STAKEDUSDE_ADMIN_ONLY_RESCUE_AND_REDISTRIBUTE",
+      "label": "INV_STAKEDUSDE_ADMIN_ONLY_RESCUE_AND_REDISTRIBUTE",
       "type": "access",
       "rule": "unit:2920 and unit:2991 must revert unless msg.sender has var:AccessControl.DEFAULT_ADMIN_ROLE.",
       "explanation": "Token rescue and redistribution paths can move funds; improper access control enables direct theft or forced redistribution from restricted accounts.",
@@ -463,7 +463,7 @@
       "chunk_id": "chunk_1"
     },
     {
-      "id": "INV_STAKEDUSDE_BLACKLIST_MANAGEMENT_RESTRICTED",
+      "label": "INV_STAKEDUSDE_BLACKLIST_MANAGEMENT_RESTRICTED",
       "type": "access",
       "rule": "unit:2861 and unit:2885 must revert unless msg.sender has var:StakedUSDe.BLACKLIST_MANAGER_ROLE (and/or var:AccessControl.DEFAULT_ADMIN_ROLE if implemented), and must not allow bypass of restrictions encoded by var:StakedUSDe.FULL_RESTRICTED_STAKER_ROLE and var:StakedUSDe.SOFT_RESTRICTED_STAKER_ROLE.",
       "explanation": "Blacklist controls gate staking/withdrawal behaviors; if unauthorized callers can add/remove restrictions, funds can be frozen/unfrozen maliciously or compliance controls bypassed.",
@@ -485,7 +485,7 @@
       "chunk_id": "chunk_1"
     },
     {
-      "id": "INV_RATE_PROVIDER_GET_RATE_NO_SIDE_EFFECTS_AND_POSITIVE_WHEN_ASSETS_POSITIVE",
+      "label": "INV_RATE_PROVIDER_GET_RATE_NO_SIDE_EFFECTS_AND_POSITIVE_WHEN_ASSETS_POSITIVE",
       "type": "other",
       "rule": "unit:227 must not modify state (in particular var:EthenaBalancerRateProvider.stakedUSDe) and when unit:3013 on var:EthenaBalancerRateProvider.stakedUSDe is > 0, unit:227 must return a strictly positive rate.",
       "explanation": "Rate providers are often used by integrations; stateful or zero/negative rate outputs under positive assets can break integrations and enable manipulation of pool math.",
@@ -505,7 +505,7 @@
       "chunk_id": "chunk_1"
     },
     {
-      "id": "INV_USDE_MINT_ONLY_MINTER",
+      "label": "INV_USDE_MINT_ONLY_MINTER",
       "type": "access",
       "rule": "Calls to unit:4411 must revert unless msg.sender == var:USDe.minter.",
       "explanation": "If any address other than the configured minter can call mint, USDe supply can be inflated unbacked, breaking solvency and the delta-neutral peg assumptions.",
@@ -523,7 +523,7 @@
       "chunk_id": "chunk_2"
     },
     {
-      "id": "INV_USDE_SETMINTER_RESTRICTED",
+      "label": "INV_USDE_SETMINTER_RESTRICTED",
       "type": "access",
       "rule": "unit:4390 must be callable only by the privileged owner/governance; unauthorized callers must revert and var:USDe.minter must remain unchanged on such calls.",
       "explanation": "If an attacker can change the minter, they can immediately mint arbitrary USDe via unit:4411.",
@@ -541,7 +541,7 @@
       "chunk_id": "chunk_2"
     },
     {
-      "id": "INV_SRD_OPERATOR_ONLY_TRANSFERINREWARDS",
+      "label": "INV_SRD_OPERATOR_ONLY_TRANSFERINREWARDS",
       "type": "access",
       "rule": "unit:3831 must revert unless msg.sender == var:StakingRewardsDistributor.operator.",
       "explanation": "If anyone can trigger reward transfers, an attacker could grief accounting, front-run reward timing, or trigger unintended token movements from the distributor.",
@@ -559,7 +559,7 @@
       "chunk_id": "chunk_2"
     },
     {
-      "id": "INV_SRD_SETOPERATOR_RESTRICTED_AND_SAFE",
+      "label": "INV_SRD_SETOPERATOR_RESTRICTED_AND_SAFE",
       "type": "access",
       "rule": "unit:4081 must be callable only by the privileged owner/governance; additionally, after any successful call, var:StakingRewardsDistributor.operator must not equal var:StakingRewardsDistributor.mintContract.",
       "explanation": "Unrestricted operator changes allow hostile reward-flow control. Preventing operator == mintContract reduces privilege concentration and mitigates misconfiguration where the minting path can also pull/route rewards.",
@@ -578,7 +578,7 @@
       "chunk_id": "chunk_2"
     },
     {
-      "id": "INV_SRD_SETMINTCONTRACT_RESTRICTED",
+      "label": "INV_SRD_SETMINTCONTRACT_RESTRICTED",
       "type": "access",
       "rule": "unit:3946 must be callable only by the privileged owner/governance; unauthorized callers must revert and var:StakingRewardsDistributor.mintContract must remain unchanged on such calls.",
       "explanation": "If an attacker can set the mintContract, they can potentially redirect approvals and token flows intended for minting integrations.",
@@ -596,7 +596,7 @@
       "chunk_id": "chunk_2"
     },
     {
-      "id": "INV_STAKEDUSDEV2_COOLDOWN_DURATION_BOUNDED",
+      "label": "INV_STAKEDUSDEV2_COOLDOWN_DURATION_BOUNDED",
       "type": "fee_bound",
       "rule": "After any successful unit:3611 call, var:StakedUSDeV2.cooldownDuration must be <= var:StakedUSDeV2.MAX_COOLDOWN_DURATION.",
       "explanation": "An unbounded cooldown can lock user funds (liveness failure) or create inconsistent withdrawal assumptions across integrations.",
@@ -615,7 +615,7 @@
       "chunk_id": "chunk_2"
     },
     {
-      "id": "INV_STAKEDUSDEV2_SETCOOLDOWN_ADMIN_ONLY",
+      "label": "INV_STAKEDUSDEV2_SETCOOLDOWN_ADMIN_ONLY",
       "type": "access",
       "rule": "unit:3611 must be callable only by an address with var:AccessControl.DEFAULT_ADMIN_ROLE; unauthorized callers must revert and var:StakedUSDeV2.cooldownDuration must remain unchanged on such calls.",
       "explanation": "If arbitrary users can change cooldownDuration, they can bypass intended exit restrictions (set to 0) or grief by making exits extremely slow (set to very large).",
@@ -634,7 +634,7 @@
       "chunk_id": "chunk_2"
     },
     {
-      "id": "INV_STAKEDUSDEV2_UNSTAKE_REQUIRES_COOLDOWN_ORDERING",
+      "label": "INV_STAKEDUSDEV2_UNSTAKE_REQUIRES_COOLDOWN_ORDERING",
       "type": "ordering",
       "rule": "A successful unit:3450 for a user must be possible only if that user previously set a cooldown via unit:3515 or unit:3580 and the elapsed time meets the var:StakedUSDeV2.cooldownDuration requirement (otherwise unit:3450 must revert).",
       "explanation": "This enforces the intended exit sequencing and prevents instant unstake if cooldowns are required, reducing liquidity shocks and manipulation around reward/hedge timing.",
@@ -655,7 +655,7 @@
       "chunk_id": "chunk_2"
     },
     {
-      "id": "INV_TESTNETERC20_PERMIT_NONCE_MONOTONIC",
+      "label": "INV_TESTNETERC20_PERMIT_NONCE_MONOTONIC",
       "type": "other",
       "rule": "For any owner, each successful unit:4276 must increase var:TestnetERC20._nonces[owner] by exactly 1, and unit:4327 must return the same value stored in var:TestnetERC20._nonces for that owner.",
       "explanation": "Nonces prevent signature replay. If nonces do not strictly increase on permit, attackers can replay old permits to regain allowances.",
@@ -676,7 +676,7 @@
       "chunk_id": "chunk_2"
     },
     {
-      "id": "INV_STAKEDUSDE_UNVESTED_BOUNDED",
+      "label": "INV_STAKEDUSDE_UNVESTED_BOUNDED",
       "type": "conservation",
       "rule": "unit:3052 must always return a value in the range [0, var:StakedUSDe.vestingAmount].",
       "explanation": "Returning more than vestingAmount or negative-like underflow indicates vesting math bugs that can misaccount rewards and enable over-withdrawal or reward manipulation.",
@@ -696,7 +696,7 @@
       "chunk_id": "chunk_2"
     },
     {
-      "id": "INV_STAKEDUSDE_UNVESTED_EVENTUALLY_ZERO",
+      "label": "INV_STAKEDUSDE_UNVESTED_EVENTUALLY_ZERO",
       "type": "liveness",
       "rule": "If the current time is >= var:StakedUSDe.lastDistributionTimestamp + var:StakedUSDe.VESTING_PERIOD, then unit:3052 must return 0.",
       "explanation": "Vesting should fully complete after the vesting window; otherwise rewards can remain permanently locked or accounting can drift over time.",
@@ -715,7 +715,7 @@
       "chunk_id": "chunk_2"
     },
     {
-      "id": "INV_LPSTAKING_EPOCH_MONOTONIC",
+      "label": "INV_LPSTAKING_EPOCH_MONOTONIC",
       "type": "ordering",
       "rule": "Any successful unit:329 must set var:EthenaLPStaking.currentEpoch to a value >= its previous value (monotonic non-decreasing).",
       "explanation": "Epoch regression can break reward calculations, allow double counting across epochs, or invalidate user accounting dependent on epoch boundaries.",
@@ -733,7 +733,7 @@
       "chunk_id": "chunk_2"
     },
     {
-      "id": "INV_LPSTAKING_UPDATESTAKEPARAMETERS_COOLDOWN_BOUNDED",
+      "label": "INV_LPSTAKING_UPDATESTAKEPARAMETERS_COOLDOWN_BOUNDED",
       "type": "fee_bound",
       "rule": "unit:383 must not allow stake parameters for any token in var:EthenaLPStaking.stakeParametersByToken to be configured with a cooldown period greater than var:EthenaLPStaking._MAX_COOLDOWN_PERIOD (invalid values must revert).",
       "explanation": "Unbounded cooldowns can lock LP funds and create governance griefing vectors; bounding also prevents overflow/underflow in time-based math.",
@@ -752,7 +752,7 @@
       "chunk_id": "chunk_2"
     },
     {
-      "id": "INV_ACCESS_OWNER_ONLY_RENOUNCE",
+      "label": "INV_ACCESS_OWNER_ONLY_RENOUNCE",
       "type": "access",
       "rule": "Calls to unit:4421 and unit:461 must revert when made by any non-owner caller.",
       "explanation": "If a non-owner can renounce ownership, they can permanently disable privileged administration or alter the protocol\u2019s security posture by forcing loss of ownership control.",
@@ -770,7 +770,7 @@
       "chunk_id": "chunk_3"
     },
     {
-      "id": "INV_ACCESS_OWNER_ONLY_RESCUE_TOKENS",
+      "label": "INV_ACCESS_OWNER_ONLY_RESCUE_TOKENS",
       "type": "access",
       "rule": "Calls to unit:450 must revert when made by any non-owner caller.",
       "explanation": "If a non-owner can call rescueTokens, they can steal tokens accidentally sent to the contract or drain protocol-held assets intended for users/operations.",
@@ -788,7 +788,7 @@
       "chunk_id": "chunk_3"
     },
     {
-      "id": "INV_ORDERING_RENOUNCE_DISABLES_OWNER_ACTIONS",
+      "label": "INV_ORDERING_RENOUNCE_DISABLES_OWNER_ACTIONS",
       "type": "ordering",
       "rule": "After a successful call to unit:461, any subsequent call to unit:450 must revert (ownership should be irrecoverably removed).",
       "explanation": "If ownership can still exercise privileged actions after renounceOwnership, the contract may not actually be ownerless, or ownership may be re-acquirable via an unexpected path.",
@@ -805,7 +805,7 @@
       "chunk_id": "chunk_3"
     },
     {
-      "id": "INV_OTHER_RESCUE_TOKENS_CANNOT_RESCUE_ETH_SENTINEL",
+      "label": "INV_OTHER_RESCUE_TOKENS_CANNOT_RESCUE_ETH_SENTINEL",
       "type": "other",
       "rule": "unit:450 must revert (or have no effect) when attempting to rescue the address equal to var:EthenaLPStaking._ETH_ADDRESS.",
       "explanation": "Many rescue functions intentionally disallow rescuing native ETH (or a sentinel ETH address) to prevent bypassing expected accounting or to avoid unsafe ETH transfers from privileged roles.",
@@ -823,7 +823,7 @@
       "chunk_id": "chunk_3"
     },
     {
-      "id": "INV_CONSERVATION_WETH_DEPOSIT_MINTS_1TO1",
+      "label": "INV_CONSERVATION_WETH_DEPOSIT_MINTS_1TO1",
       "type": "conservation",
       "rule": "For unit:4557, var:WETH9.balanceOf[caller] must increase by exactly msg.value, and unit:4606 must increase by exactly msg.value.",
       "explanation": "If deposit does not mint 1:1 against ETH sent, the system breaks peg and enables value creation/loss (e.g., minting more WETH than ETH deposited or failing to credit deposits).",
@@ -842,7 +842,7 @@
       "chunk_id": "chunk_3"
     },
     {
-      "id": "INV_CONSERVATION_WETH_WITHDRAW_BURNS_1TO1",
+      "label": "INV_CONSERVATION_WETH_WITHDRAW_BURNS_1TO1",
       "type": "conservation",
       "rule": "For unit:4594, var:WETH9.balanceOf[caller] must decrease by exactly the withdrawn amount and unit:4606 must decrease by exactly the withdrawn amount; the call must revert if var:WETH9.balanceOf[caller] is insufficient.",
       "explanation": "If withdrawal can succeed without sufficient balance, or burns the wrong amount, an attacker can drain ETH or desynchronize WETH accounting from actual collateral.",
@@ -861,7 +861,7 @@
       "chunk_id": "chunk_3"
     },
     {
-      "id": "INV_CONSERVATION_WETH_TRANSFERFROM_BALANCES_MOVE_ONLY",
+      "label": "INV_CONSERVATION_WETH_TRANSFERFROM_BALANCES_MOVE_ONLY",
       "type": "conservation",
       "rule": "For unit:4730, var:WETH9.balanceOf[from] must decrease by exactly wad and var:WETH9.balanceOf[to] must increase by exactly wad; unit:4606 must remain unchanged.",
       "explanation": "transferFrom must only move balances (no mint/burn). Any deviation enables hidden inflation/deflation or balance corruption.",
@@ -880,7 +880,7 @@
       "chunk_id": "chunk_3"
     },
     {
-      "id": "INV_CONSERVATION_WETH_TRANSFERFROM_ALLOWANCE_SPEND",
+      "label": "INV_CONSERVATION_WETH_TRANSFERFROM_ALLOWANCE_SPEND",
       "type": "conservation",
       "rule": "For unit:4730, var:WETH9.allowance[from][caller] must not increase, and must decrease by exactly wad when the pre-call allowance is finite; the call must revert if allowance is insufficient.",
       "explanation": "If allowance is not decremented correctly, spenders can repeatedly drain funds beyond approved limits. If underflow/incorrect checks exist, it can also corrupt allowance state.",
@@ -899,7 +899,7 @@
       "chunk_id": "chunk_3"
     },
     {
-      "id": "INV_ORDERING_WETH_APPROVE_ONLY_CHANGES_ALLOWANCE",
+      "label": "INV_ORDERING_WETH_APPROVE_ONLY_CHANGES_ALLOWANCE",
       "type": "ordering",
       "rule": "unit:4634 must only update var:WETH9.allowance and must not change var:WETH9.balanceOf for any address.",
       "explanation": "approve should not move value. If balances change during approval, a malicious or buggy implementation could steal funds or introduce hidden transfers.",
@@ -918,7 +918,7 @@
       "chunk_id": "chunk_3"
     },
     {
-      "id": "INV_REENTRANCY_WETH_WITHDRAW_STATE_UPDATED_BEFORE_EXTERNAL",
+      "label": "INV_REENTRANCY_WETH_WITHDRAW_STATE_UPDATED_BEFORE_EXTERNAL",
       "type": "reentrancy",
       "rule": "During unit:4594, var:WETH9.balanceOf[caller] must be reduced before any external control transfer (e.g., ETH send) can allow re-entrant calls that observe the pre-withdraw balance.",
       "explanation": "If ETH is sent before state updates, a re-entrant caller can withdraw multiple times against the same balance, draining the contract.",
@@ -936,7 +936,7 @@
       "chunk_id": "chunk_3"
     },
     {
-      "id": "INV_CONSERVATION_WETH_RECEIVE_EQUIV_DEPOSIT",
+      "label": "INV_CONSERVATION_WETH_RECEIVE_EQUIV_DEPOSIT",
       "type": "conservation",
       "rule": "unit:4538 must have the same observable accounting effect as unit:4557 for equivalent ETH value: var:WETH9.balanceOf[caller] and unit:4606 increase by the received ETH amount.",
       "explanation": "If receive does not mint WETH consistently, ETH sent to the contract could become stuck or could incorrectly credit users, breaking 1:1 backing assumptions.",
@@ -956,7 +956,7 @@
       "chunk_id": "chunk_3"
     },
     {
-      "id": "INV_OTHER_USDESILO_WITHDRAW_ONLY_USDE",
+      "label": "INV_OTHER_USDESILO_WITHDRAW_ONLY_USDE",
       "type": "other",
       "rule": "unit:4481 must only interact with the token referenced by var:USDeSilo._USDE and must not transfer any other asset type as a side effect.",
       "explanation": "A withdrawal function in a silo/vault that can move arbitrary tokens can be abused to drain unrelated assets accidentally sent to the contract or held for other purposes.",
@@ -974,7 +974,7 @@
       "chunk_id": "chunk_3"
     },
     {
-      "id": "INV_ERC4626_CONVERT_INVERSE_ASSETS",
+      "label": "INV_ERC4626_CONVERT_INVERSE_ASSETS",
       "type": "conservation",
       "rule": "For any assets amount a > 0, IERC4626Minimal.convertToAssets(IERC4626Minimal.convertToShares(a)) must be equal to a or differ only by expected rounding (i.e., it must not be materially less than a).",
       "explanation": "Prevents inconsistent share/accounting math that could allow minting shares too cheaply or redeeming for more assets than deposited due to conversion-function discrepancies.",
@@ -991,7 +991,7 @@
       "chunk_id": "chunk_4"
     },
     {
-      "id": "INV_ERC4626_CONVERT_INVERSE_SHARES",
+      "label": "INV_ERC4626_CONVERT_INVERSE_SHARES",
       "type": "conservation",
       "rule": "For any shares amount s > 0, IERC4626Minimal.convertToShares(IERC4626Minimal.convertToAssets(s)) must be equal to s or differ only by expected rounding (i.e., it must not be materially less than s).",
       "explanation": "Ensures that the vault\u2019s shares<->assets conversion is internally coherent; violations can enable rounding-based value extraction via repeated conversions or deposits/withdrawals.",
@@ -1008,7 +1008,7 @@
       "chunk_id": "chunk_4"
     },
     {
-      "id": "INV_ERC4626_PREVIEW_DEPOSIT_CONSISTENCY",
+      "label": "INV_ERC4626_PREVIEW_DEPOSIT_CONSISTENCY",
       "type": "other",
       "rule": "For any assets amount a, IERC4626Minimal.previewDeposit(a) must be consistent with IERC4626Minimal.convertToShares(a) (equal, or if fees exist, previewDeposit(a) must not exceed convertToShares(a)).",
       "explanation": "If previewDeposit overestimates shares relative to convertToShares, users (or integrators) can be misled and/or an implementation could mint more shares than its own pricing implies.",
@@ -1025,7 +1025,7 @@
       "chunk_id": "chunk_4"
     },
     {
-      "id": "INV_ERC4626_MAXDEPOSIT_ENFORCED",
+      "label": "INV_ERC4626_MAXDEPOSIT_ENFORCED",
       "type": "access",
       "rule": "If a user attempts IERC4626Minimal.deposit(assets, receiver) with assets > IERC4626Minimal.maxDeposit(receiver), the call must revert; if assets <= maxDeposit(receiver), the call must not revert solely due to the maxDeposit limit.",
       "explanation": "Ensures deposit limits are actually enforced. If bypassable, an attacker can exceed risk limits (e.g., capacity, per-block caps, or collateral constraints).",
@@ -1042,7 +1042,7 @@
       "chunk_id": "chunk_4"
     },
     {
-      "id": "INV_ERC4626_MAXMINT_NONZERO_IMPLIES_CAPACITY",
+      "label": "INV_ERC4626_MAXMINT_NONZERO_IMPLIES_CAPACITY",
       "type": "liveness",
       "rule": "If IERC4626Minimal.maxMint(user) returns > 0 at a given block, then for some corresponding assets amount a where convertToShares(a) <= maxMint(user), a deposit with that a should be possible without reverting due to capacity limits.",
       "explanation": "Prevents a misleading state where the vault reports mint capacity but deposits are unusable, which can break integrators and create denial-of-service conditions.",
@@ -1060,7 +1060,7 @@
       "chunk_id": "chunk_4"
     },
     {
-      "id": "INV_ERC4626_TOTALASSETS_NONDECREASING_ON_DEPOSIT",
+      "label": "INV_ERC4626_TOTALASSETS_NONDECREASING_ON_DEPOSIT",
       "type": "solvency",
       "rule": "For any successful IERC4626Minimal.deposit(assets, receiver), IERC4626Minimal.totalAssets() after the call must be >= totalAssets() before the call.",
       "explanation": "A deposit should not reduce the reported assets under management. If it can, accounting manipulation or incorrect asset transfers may allow share dilution, loss of backing, or misreporting of solvency.",
@@ -1077,7 +1077,7 @@
       "chunk_id": "chunk_4"
     },
     {
-      "id": "INV_UNISWAP_PAIR_TOKENS_DISTINCT_IMMUTABLE",
+      "label": "INV_UNISWAP_PAIR_TOKENS_DISTINCT_IMMUTABLE",
       "type": "other",
       "rule": "IUniswapV2Pair.token0() and IUniswapV2Pair.token1() must be distinct and must remain constant across calls.",
       "explanation": "If token identities can change or are equal, pricing, reserve math, and any integrations (e.g., TWAP) can be corrupted, enabling theft or oracle manipulation.",
@@ -1094,7 +1094,7 @@
       "chunk_id": "chunk_4"
     },
     {
-      "id": "INV_UNISWAP_PAIR_CUMULATIVE_PRICES_MONOTONIC",
+      "label": "INV_UNISWAP_PAIR_CUMULATIVE_PRICES_MONOTONIC",
       "type": "ordering",
       "rule": "IUniswapV2Pair.price0CumulativeLast() and IUniswapV2Pair.price1CumulativeLast() must be monotonically non-decreasing over time.",
       "explanation": "Cumulative prices underpin TWAP calculations. If they decrease, TWAP/oracle consumers can compute incorrect (possibly attacker-favorable) prices.",
@@ -1111,7 +1111,7 @@
       "chunk_id": "chunk_4"
     },
     {
-      "id": "INV_UNISWAP_PAIR_RESERVES_EXIST_WITH_SUPPLY",
+      "label": "INV_UNISWAP_PAIR_RESERVES_EXIST_WITH_SUPPLY",
       "type": "solvency",
       "rule": "If IUniswapV2Pair.totalSupply() > 0, then IUniswapV2Pair.getReserves() must report reserves where reserve0 > 0 and reserve1 > 0.",
       "explanation": "A nonzero LP supply with zero reserves indicates broken accounting and can enable price/oracle failures and potentially allow mint/burn manipulation in dependent systems.",
@@ -1128,7 +1128,7 @@
       "chunk_id": "chunk_4"
     },
     {
-      "id": "INV_CONVEX_REWARDTOKEN_IMMUTABLE",
+      "label": "INV_CONVEX_REWARDTOKEN_IMMUTABLE",
       "type": "other",
       "rule": "IVirtualBalanceRewardPool.rewardToken() must remain constant across calls.",
       "explanation": "If the reward token can change unexpectedly, users and accounting systems can be tricked into claiming worthless or malicious tokens, or rewards can be silently redirected.",
@@ -1144,7 +1144,7 @@
       "chunk_id": "chunk_4"
     },
     {
-      "id": "INV_CONVEX_GETREWARD_DOES_NOT_CHANGE_STAKE_BALANCE",
+      "label": "INV_CONVEX_GETREWARD_DOES_NOT_CHANGE_STAKE_BALANCE",
       "type": "conservation",
       "rule": "For any account u, calling IVirtualBalanceRewardPool.getReward() must not change IVirtualBalanceRewardPool.balanceOf(u).",
       "explanation": "Claiming rewards should not alter the staked balance. If it does, attackers may be able to indirectly unstake/steal principal or corrupt reward accounting.",
@@ -1161,7 +1161,7 @@
       "chunk_id": "chunk_4"
     },
     {
-      "id": "INV_CONVEX_EARNED_NOT_INCREASED_IMMEDIATELY_AFTER_CLAIM",
+      "label": "INV_CONVEX_EARNED_NOT_INCREASED_IMMEDIATELY_AFTER_CLAIM",
       "type": "ordering",
       "rule": "For any account u, immediately after a successful IVirtualBalanceRewardPool.getReward() in the same transaction context, IVirtualBalanceRewardPool.earned(u) must be 0 or must not increase relative to its pre-claim value (absent new reward accrual mechanisms within the same call).",
       "explanation": "Prevents a scenario where claiming rewards does not properly reset/settle accounting, enabling repeated claims for the same reward period.",
@@ -1178,7 +1178,7 @@
       "chunk_id": "chunk_4"
     },
     {
-      "id": "INV_LIDO_QUORUM_LEQ_MEMBERS",
+      "label": "INV_LIDO_QUORUM_LEQ_MEMBERS",
       "type": "other",
       "rule": "ILidoOracle.getQuorum() must be <= length of ILidoOracle.getOracleMembers().",
       "explanation": "If quorum exceeds member count, oracle reporting can become impossible (liveness failure). If quorum is inconsistent, it may also indicate misconfiguration leading to insecure reporting thresholds.",
@@ -1195,7 +1195,7 @@
       "chunk_id": "chunk_4"
     },
     {
-      "id": "INV_LIDO_EXPECTED_EPOCH_MONOTONIC",
+      "label": "INV_LIDO_EXPECTED_EPOCH_MONOTONIC",
       "type": "ordering",
       "rule": "ILidoOracle.getExpectedEpochId() must be monotonically non-decreasing over time.",
       "explanation": "Epoch regressions can break accounting tied to staking/oracle updates and may allow replay or inconsistent reporting assumptions in integrations.",
@@ -1211,7 +1211,7 @@
       "chunk_id": "chunk_4"
     },
     {
-      "id": "INV_ERC4626_MINT_PREVIEW_UPPER_BOUND",
+      "label": "INV_ERC4626_MINT_PREVIEW_UPPER_BOUND",
       "type": "conservation",
       "rule": "For IERC4626Minimal, for any state and inputs, the assets actually required/consumed by unit:5088 (mint) for a given share amount MUST be <= the value returned by unit:5079 (previewMint) for the same share amount when called immediately before mint in the same state (i.e., previewMint must not underestimate mint cost).",
       "explanation": "If previewMint underestimates mint cost, integrators can be sandwiched into reverts or forced to overpay/over-approve unexpectedly. This is a standard ERC4626 rounding-safety property that prevents mispricing and DoS for routers relying on previews.",
@@ -1228,7 +1228,7 @@
       "chunk_id": "chunk_5"
     },
     {
-      "id": "INV_ERC4626_WITHDRAW_PREVIEW_UPPER_BOUND",
+      "label": "INV_ERC4626_WITHDRAW_PREVIEW_UPPER_BOUND",
       "type": "conservation",
       "rule": "For IERC4626Minimal, for any state and inputs, the shares actually burned/charged by unit:5113 (withdraw) for a given asset amount MUST be <= the value returned by unit:5102 (previewWithdraw) for the same asset amount when called immediately before withdraw in the same state (i.e., previewWithdraw must not underestimate share cost).",
       "explanation": "If previewWithdraw underestimates the shares needed, users/routers can attempt a withdraw that should succeed based on the preview but unexpectedly reverts, enabling griefing and breaking composability.",
@@ -1245,7 +1245,7 @@
       "chunk_id": "chunk_5"
     },
     {
-      "id": "INV_ERC4626_REDEEM_PREVIEW_LOWER_BOUND",
+      "label": "INV_ERC4626_REDEEM_PREVIEW_LOWER_BOUND",
       "type": "conservation",
       "rule": "For IERC4626Minimal, for any state and inputs, the assets actually returned by unit:5138 (redeem) for a given share amount MUST be >= the value returned by unit:5127 (previewRedeem) for the same share amount when called immediately before redeem in the same state (i.e., previewRedeem must not overestimate redeem proceeds).",
       "explanation": "If previewRedeem overestimates proceeds, integrators relying on previews can be induced into value-loss trades or reverts, and the vault can behave in a non-ERC4626-compliant manner.",
@@ -1262,7 +1262,7 @@
       "chunk_id": "chunk_5"
     },
     {
-      "id": "INV_ERC4626_WITHDRAW_LIMIT_ENFORCED",
+      "label": "INV_ERC4626_WITHDRAW_LIMIT_ENFORCED",
       "type": "access",
       "rule": "For IERC4626Minimal, unit:5113 (withdraw) MUST revert if the requested asset amount is greater than unit:5095 (maxWithdraw) for the relevant owner in the same state.",
       "explanation": "maxWithdraw is the protocol-advertised hard limit for withdrawals. If withdraw allows amounts above maxWithdraw, solvency assumptions break and integrations may be exploited by withdrawing more than permitted by accounting/limits.",
@@ -1279,7 +1279,7 @@
       "chunk_id": "chunk_5"
     },
     {
-      "id": "INV_ERC4626_REDEEM_LIMIT_ENFORCED",
+      "label": "INV_ERC4626_REDEEM_LIMIT_ENFORCED",
       "type": "access",
       "rule": "For IERC4626Minimal, unit:5138 (redeem) MUST revert if the requested share amount is greater than unit:5120 (maxRedeem) for the relevant owner in the same state.",
       "explanation": "maxRedeem is the protocol-advertised hard limit for redemptions. If redeem permits more than maxRedeem, users can bypass restrictions (locks/cooldowns/insolvency throttles) and drain assets.",
@@ -1296,7 +1296,7 @@
       "chunk_id": "chunk_5"
     },
     {
-      "id": "INV_MINTING_ORDER_HASH_DETERMINISM",
+      "label": "INV_MINTING_ORDER_HASH_DETERMINISM",
       "type": "other",
       "rule": "unit:5368 (hashOrder) MUST be deterministic: for identical order inputs and unchanged chain state, repeated calls to unit:5368 MUST return the same hash.",
       "explanation": "Non-deterministic hashing would make signatures unverifiable, break replay protection logic, and could allow order substitution or signature malleability style attacks at the application layer.",
@@ -1312,7 +1312,7 @@
       "chunk_id": "chunk_5"
     },
     {
-      "id": "INV_MINTING_INVALID_NONCE_BLOCKS_MINT",
+      "label": "INV_MINTING_INVALID_NONCE_BLOCKS_MINT",
       "type": "ordering",
       "rule": "If unit:5400 (verifyNonce) indicates an order nonce is invalid/unusable for minting in the current state, then unit:5412 (mint) and unit:5424 (mintWETH) using that same order MUST revert.",
       "explanation": "If mint is possible with a nonce that fails verification, replay protection can be bypassed, enabling repeated mints against a single signed order (inflation / draining custody assets).",
@@ -1330,7 +1330,7 @@
       "chunk_id": "chunk_5"
     },
     {
-      "id": "INV_MINTING_INVALID_ROUTE_BLOCKS_MINT",
+      "label": "INV_MINTING_INVALID_ROUTE_BLOCKS_MINT",
       "type": "ordering",
       "rule": "If unit:5387 (verifyRoute) indicates the specified route/asset is unsupported or invalid in the current state, then unit:5412 (mint) and unit:5424 (mintWETH) using that same route MUST revert.",
       "explanation": "Route verification typically enforces which collateral/assets/custody paths are allowed. If mint can proceed when verifyRoute fails, an attacker may mint against unsupported/illiquid/zero-value collateral paths.",
@@ -1348,7 +1348,7 @@
       "chunk_id": "chunk_5"
     },
     {
-      "id": "INV_REDEEM_INVALID_NONCE_BLOCKS_REDEEM",
+      "label": "INV_REDEEM_INVALID_NONCE_BLOCKS_REDEEM",
       "type": "ordering",
       "rule": "If unit:5400 (verifyNonce) indicates an order nonce is invalid/unusable for redemption in the current state, then unit:5433 (redeem) using that same order MUST revert.",
       "explanation": "If redeem is possible with an invalid nonce, redemptions can be replayed, allowing repeated outflows for a single signed authorization (custody drain).",
@@ -1365,7 +1365,7 @@
       "chunk_id": "chunk_5"
     },
     {
-      "id": "INV_LPSTAKING_STAKE_DOES_NOT_CHANGE_EPOCH",
+      "label": "INV_LPSTAKING_STAKE_DOES_NOT_CHANGE_EPOCH",
       "type": "ordering",
       "rule": "Calling unit:541 (stake) MUST NOT modify var:EthenaLPStaking.currentEpoch (i.e., currentEpoch is invariant under stake).",
       "explanation": "If public staking can change the epoch counter, a user could manipulate reward accounting boundaries, potentially stealing rewards, skipping lockups, or griefing other stakers by forcing epoch transitions.",
@@ -1383,7 +1383,7 @@
       "chunk_id": "chunk_5"
     },
     {
-      "id": "INV_STAKEDUSDE_REWARDS_DO_NOT_DECREASE_UNVESTED",
+      "label": "INV_STAKEDUSDE_REWARDS_DO_NOT_DECREASE_UNVESTED",
       "type": "conservation",
       "rule": "In IStakedUSDe, a successful call to unit:5602 (transferInRewards) MUST NOT decrease the value returned by unit:5616 (getUnvestedAmount) when measured immediately before vs immediately after the call in the same transaction context.",
       "explanation": "Rewards transfers should not reduce unvested rewards; if unvested can be decreased by depositing rewards, an attacker or privileged actor could manipulate vesting/accounting to steal yield or permanently lock funds.",
@@ -1400,7 +1400,7 @@
       "chunk_id": "chunk_5"
     },
     {
-      "id": "INV_ACCESS_USDE_MINT_ADMIN_ONLY",
+      "label": "INV_ACCESS_USDE_MINT_ADMIN_ONLY",
       "type": "access",
       "rule": "Calls to unit:5768 (IUSDe.mint) MUST revert for any caller that is not explicitly authorized as a minter/admin by the token\u2019s access-control scheme (as configured via unit:5792 and/or unit:5787).",
       "explanation": "If arbitrary users can mint, USDe becomes unbacked and the system is immediately insolvent. This is violated if access control on mint is missing, misconfigured, or can be bypassed.",
@@ -1418,7 +1418,7 @@
       "chunk_id": "chunk_6"
     },
     {
-      "id": "INV_ACCESS_USDE_ROLE_ADMIN_ONLY",
+      "label": "INV_ACCESS_USDE_ROLE_ADMIN_ONLY",
       "type": "access",
       "rule": "Calls to unit:5787 (IUSDe.grantRole) and unit:5792 (IUSDe.setMinter) MUST revert for any caller that is not the role administrator / privileged governance.",
       "explanation": "If role administration is callable by untrusted users, an attacker can self-assign mint permissions and create arbitrary USDe.",
@@ -1435,7 +1435,7 @@
       "chunk_id": "chunk_6"
     },
     {
-      "id": "INV_ACCESS_REGISTRY_SETTERS_ADMIN_ONLY",
+      "label": "INV_ACCESS_REGISTRY_SETTERS_ADMIN_ONLY",
       "type": "access",
       "rule": "Calls to unit:5876 (setLendingMarket), unit:5886 (setPriceOracleAggregator), unit:5896 (setTreasury), unit:5906 (setStaking), and unit:5916 (setStablePool) MUST revert for any caller that is not the registry admin/governance.",
       "explanation": "If these setters are callable by anyone, an attacker can redirect critical dependencies (lending market, oracle, treasury, staking, stable pool) to malicious contracts and steal funds or manipulate accounting.",
@@ -1455,7 +1455,7 @@
       "chunk_id": "chunk_6"
     },
     {
-      "id": "INV_REGISTRY_SET_GET_CONSISTENCY",
+      "label": "INV_REGISTRY_SET_GET_CONSISTENCY",
       "type": "other",
       "rule": "For each registry entry, after a successful call to its setter, the corresponding getter MUST return exactly the value that was set: (unit:5876\u2192unit:5871), (unit:5886\u2192unit:5881), (unit:5896\u2192unit:5891), (unit:5906\u2192unit:5901), (unit:5916\u2192unit:5911).",
       "explanation": "A registry that does not faithfully return the stored addresses can cause the protocol to interact with unexpected contracts, leading to loss of funds or broken mint/redeem flows.",
@@ -1480,7 +1480,7 @@
       "chunk_id": "chunk_6"
     },
     {
-      "id": "INV_REGISTRY_NONZERO_ADDRESSES",
+      "label": "INV_REGISTRY_NONZERO_ADDRESSES",
       "type": "ordering",
       "rule": "unit:5876 (setLendingMarket), unit:5886 (setPriceOracleAggregator), unit:5896 (setTreasury), unit:5906 (setStaking), and unit:5916 (setStablePool) MUST revert when attempting to set the address to the zero address.",
       "explanation": "Setting a critical dependency to zero commonly bricks protocol operations (DoS) or routes calls to an unintended address, causing loss of availability and potentially loss of funds.",
@@ -1500,7 +1500,7 @@
       "chunk_id": "chunk_6"
     },
     {
-      "id": "INV_WETH_TOTALSUPPLY_INCREASE_ON_DEPOSIT_ONLY",
+      "label": "INV_WETH_TOTALSUPPLY_INCREASE_ON_DEPOSIT_ONLY",
       "type": "conservation",
       "rule": "For unit:5823 (IWETH9.deposit), IWETH9 total supply as returned by unit:5833 MUST increase by exactly msg.value after a successful deposit call.",
       "explanation": "WETH supply conservation is fundamental; if totalSupply does not increase exactly by the deposited ETH, the token can become under- or over-collateralized, breaking integrations and allowing value extraction.",
@@ -1517,7 +1517,7 @@
       "chunk_id": "chunk_6"
     },
     {
-      "id": "INV_WETH_TOTALSUPPLY_DECREASE_ON_WITHDRAW_ONLY",
+      "label": "INV_WETH_TOTALSUPPLY_DECREASE_ON_WITHDRAW_ONLY",
       "type": "conservation",
       "rule": "For unit:5828 (IWETH9.withdraw), IWETH9 total supply as returned by unit:5833 MUST decrease by exactly the withdrawn amount after a successful withdraw call.",
       "explanation": "If withdraw does not reduce totalSupply correctly, WETH can become insolvent (ETH paid out without burning) or can burn too much, harming holders and breaking accounting assumptions.",
@@ -1534,7 +1534,7 @@
       "chunk_id": "chunk_6"
     },
     {
-      "id": "INV_CHAINLINK_DECIMALS_REASONABLE_AND_STABLE",
+      "label": "INV_CHAINLINK_DECIMALS_REASONABLE_AND_STABLE",
       "type": "other",
       "rule": "unit:5850 (IChainlinkV3Aggregator.decimals) MUST return a value in a reasonable range (0..18), and MUST be constant across repeated calls.",
       "explanation": "Incorrect or changing decimals cause systematic mispricing (e.g., 10^n scaling errors), enabling incorrect minting/redemption rates or faulty risk checks.",
@@ -1550,7 +1550,7 @@
       "chunk_id": "chunk_6"
     },
     {
-      "id": "INV_CHAINLINK_ROUND_DATA_SANITY",
+      "label": "INV_CHAINLINK_ROUND_DATA_SANITY",
       "type": "other",
       "rule": "unit:5863 (IChainlinkV3Aggregator.latestRoundData) MUST satisfy basic sanity: updatedAt > 0 AND answeredInRound >= roundId; additionally, answer MUST be non-negative.",
       "explanation": "Stale or malformed oracle data (or negative answers) can lead to incorrect valuation and unsafe mint/redeem actions. answeredInRound < roundId is a known indicator of incomplete oracle answers.",
@@ -1566,7 +1566,7 @@
       "chunk_id": "chunk_6"
     },
     {
-      "id": "INV_CHAINLINK_ROUND_ID_MONOTONIC",
+      "label": "INV_CHAINLINK_ROUND_ID_MONOTONIC",
       "type": "ordering",
       "rule": "Across sequential calls within a test run, unit:5863 (latestRoundData) MUST return a roundId that is non-decreasing.",
       "explanation": "If roundId can go backwards, consumers can be fed older data unexpectedly, enabling price manipulation via timing or inconsistent reads.",
@@ -1582,7 +1582,7 @@
       "chunk_id": "chunk_6"
     },
     {
-      "id": "INV_ACCESS_REWARDS_DISTRIBUTOR_PRIVILEGED_ONLY",
+      "label": "INV_ACCESS_REWARDS_DISTRIBUTOR_PRIVILEGED_ONLY",
       "type": "access",
       "rule": "Calls to unit:5732 (IStakingRewardsDistributor.rescueTokens), unit:5737 (setOperator), unit:5743 (setMintingContract), and unit:5749 (approveToMintContract) MUST revert for non-privileged callers (non-owner/operator as intended by the implementation).",
       "explanation": "If these functions are callable by anyone, an attacker can (a) steal tokens via rescueTokens, (b) take over operations via setOperator, or (c) redirect approvals and drain funds via approveToMintContract / setMintingContract.",
@@ -1601,7 +1601,7 @@
       "chunk_id": "chunk_6"
     },
     {
-      "id": "INV_ORDERING_APPROVE_REQUIRES_VALID_MINTING_CONTRACT",
+      "label": "INV_ORDERING_APPROVE_REQUIRES_VALID_MINTING_CONTRACT",
       "type": "ordering",
       "rule": "unit:5749 (IStakingRewardsDistributor.approveToMintContract) MUST revert if called before unit:5743 (setMintingContract) has been successfully executed to set a non-zero minting contract.",
       "explanation": "Approving before a valid minting contract is configured can approve the wrong address (including zero) or enable unexpected token spending paths, which can lead to fund loss or broken minting flows.",
@@ -1618,7 +1618,7 @@
       "chunk_id": "chunk_6"
     },
     {
-      "id": "INV_REGISTRY_SWAPPER_SET_GET_CONSISTENT",
+      "label": "INV_REGISTRY_SWAPPER_SET_GET_CONSISTENT",
       "type": "conservation",
       "rule": "After any successful call to unit:5926 (setSwapper), subsequent calls to unit:5921 (getSwapper) must return exactly the last value set, until changed again by a later successful unit:5926.",
       "explanation": "Prevents address-registry corruption or partial updates where the configured swapper differs between setter and getter. Violations can route funds/approvals to an unexpected swapper and enable loss of funds.",
@@ -1635,7 +1635,7 @@
       "chunk_id": "chunk_7"
     },
     {
-      "id": "INV_REGISTRY_SWAPPER_ACCESS_CONTROL",
+      "label": "INV_REGISTRY_SWAPPER_ACCESS_CONTROL",
       "type": "access",
       "rule": "Calls to unit:5926 (setSwapper) from any non-authorized account must revert, and must not change the value returned by unit:5921 (getSwapper).",
       "explanation": "If any account can change the swapper, an attacker can redirect swaps to a malicious contract and steal assets or manipulate pricing and execution.",
@@ -1652,7 +1652,7 @@
       "chunk_id": "chunk_7"
     },
     {
-      "id": "INV_KEEPER_ADD_IMPLIED_BY_ISKEEPER_AND_GETKEEPERS",
+      "label": "INV_KEEPER_ADD_IMPLIED_BY_ISKEEPER_AND_GETKEEPERS",
       "type": "ordering",
       "rule": "If unit:5937 (addKeeper) succeeds for address K, then unit:5949 (isKeeper) must return true for K, and K must appear in the list returned by unit:5932 (getKeepers) until removed by a successful unit:5942 (removeKeeper).",
       "explanation": "Ensures keeper-set integrity. If isKeeper and getKeepers diverge, authorization checks may be bypassed or legitimate keepers may be unable to act, threatening protocol operation (liquidations/maintenance).",
@@ -1671,7 +1671,7 @@
       "chunk_id": "chunk_7"
     },
     {
-      "id": "INV_KEEPER_REMOVE_IMPLIED_BY_ISKEEPER_AND_GETKEEPERS",
+      "label": "INV_KEEPER_REMOVE_IMPLIED_BY_ISKEEPER_AND_GETKEEPERS",
       "type": "ordering",
       "rule": "If unit:5942 (removeKeeper) succeeds for address K, then unit:5949 (isKeeper) must return false for K, and K must not appear in the list returned by unit:5932 (getKeepers) afterwards (unless re-added by a later successful unit:5937).",
       "explanation": "Prevents stale keeper authorization. If removed keepers remain active, compromised keeper keys can continue to execute privileged actions and cause losses.",
@@ -1690,7 +1690,7 @@
       "chunk_id": "chunk_7"
     },
     {
-      "id": "INV_KEEPERS_LIST_HAS_NO_DUPLICATES",
+      "label": "INV_KEEPERS_LIST_HAS_NO_DUPLICATES",
       "type": "other",
       "rule": "The array returned by unit:5932 (getKeepers) must contain no duplicate addresses, and each element must satisfy unit:5949 (isKeeper) == true.",
       "explanation": "Duplicate or inconsistent entries can break off-chain automation, enable edge-case authorization bugs, and complicate safe keeper removal.",
@@ -1707,7 +1707,7 @@
       "chunk_id": "chunk_7"
     },
     {
-      "id": "INV_KEEPER_SET_ACCESS_CONTROL",
+      "label": "INV_KEEPER_SET_ACCESS_CONTROL",
       "type": "access",
       "rule": "Calls to unit:5937 (addKeeper) and unit:5942 (removeKeeper) from any non-authorized account must revert and must not change the output of unit:5932 (getKeepers) or unit:5949 (isKeeper).",
       "explanation": "If anyone can manage keepers, an attacker can add themselves as keeper to perform privileged actions (e.g., liquidations or maintenance functions in implementations).",
@@ -1726,7 +1726,7 @@
       "chunk_id": "chunk_7"
     },
     {
-      "id": "INV_LENDINGMARKET_USER_ENUMERATION_BOUNDS",
+      "label": "INV_LENDINGMARKET_USER_ENUMERATION_BOUNDS",
       "type": "ordering",
       "rule": "For any state, for all indices i where 0 <= i < unit:5967 (getUserCount), unit:5976 (getUserAt)(i) must return a non-zero address; and calls to unit:5976 with i >= unit:5967 must revert.",
       "explanation": "Prevents out-of-bounds reads and malformed user lists. Enumeration is often used by bots/keepers; malformed enumeration can block risk management and liquidation workflows.",
@@ -1743,7 +1743,7 @@
       "chunk_id": "chunk_7"
     },
     {
-      "id": "INV_LENDINGVAULT_WITHDRAW_NOT_EXCEED_BALANCE",
+      "label": "INV_LENDINGVAULT_WITHDRAW_NOT_EXCEED_BALANCE",
       "type": "solvency",
       "rule": "A successful unit:6068 (withdraw) must not reduce the caller\u2019s unit:6035 (balanceOf) below zero and must not allow withdrawing more value than represented by the caller\u2019s pre-withdraw unit:6035 (balanceOf).",
       "explanation": "Core solvency property for vault share accounting. If withdraw can exceed balance, attackers can drain collateral from the vault.",
@@ -1760,7 +1760,7 @@
       "chunk_id": "chunk_7"
     },
     {
-      "id": "INV_LENDINGVAULT_DEPOSIT_MINTS_OR_CREDITS_BALANCE",
+      "label": "INV_LENDINGVAULT_DEPOSIT_MINTS_OR_CREDITS_BALANCE",
       "type": "conservation",
       "rule": "If unit:6061 (deposit) succeeds for user U, then U\u2019s unit:6035 (balanceOf) must not decrease as a direct result of the deposit, and unit:6028 (totalSupply) must not decrease as a direct result of the deposit.",
       "explanation": "Prevents accounting inversions where deposits burn shares or reduce supply, which can be abused to steal yield or manipulate share price.",
@@ -1778,7 +1778,7 @@
       "chunk_id": "chunk_7"
     },
     {
-      "id": "INV_LENDINGVAULT_TOTALCOLLATERAL_AT_LEAST_SUM_USERCOLLATERAL",
+      "label": "INV_LENDINGVAULT_TOTALCOLLATERAL_AT_LEAST_SUM_USERCOLLATERAL",
       "type": "solvency",
       "rule": "For any tested set of users {U1..Un}, unit:6040 (totalCollateral) must be >= sum over i of unit:6047 (userCollateral)(Ui).",
       "explanation": "Ensures vault-wide collateral accounting is not understated relative to user-accounting. Understated totals can hide insolvency or allow over-withdrawals if other checks rely on totalCollateral.",
@@ -1795,7 +1795,7 @@
       "chunk_id": "chunk_7"
     },
     {
-      "id": "INV_LENDINGMARKET_LIQUIDATE_ONLY_IF_LIQUIDATABLE",
+      "label": "INV_LENDINGMARKET_LIQUIDATE_ONLY_IF_LIQUIDATABLE",
       "type": "ordering",
       "rule": "unit:6020 (liquidate) must revert unless unit:6013 (liquidatable) returns true for the same target position parameters; and if unit:6013 returns false, unit:6020 must not succeed.",
       "explanation": "Prevents unauthorized or premature liquidation, which can steal collateral from healthy accounts and destabilize the system.",
@@ -1812,7 +1812,7 @@
       "chunk_id": "chunk_7"
     },
     {
-      "id": "INV_ORACLE_PRICE_POSITIVE_AND_STABLE_UNDER_NO_UPDATE",
+      "label": "INV_ORACLE_PRICE_POSITIVE_AND_STABLE_UNDER_NO_UPDATE",
       "type": "other",
       "rule": "unit:6081 (viewPriceInUSD) and unit:6107 (viewPriceInUSD) must return a strictly positive value for supported assets, and repeated calls without any intervening successful unit:6100 (updateOracleForAsset) must return the same value within the same transaction context.",
       "explanation": "Prevents zero/negative pricing and intra-transaction price instability that can be exploited for mint/redeem/arbitrage or liquidation manipulation.",
@@ -1831,7 +1831,7 @@
       "chunk_id": "chunk_7"
     },
     {
-      "id": "INV_UNISWAP_ROUTER_FACTORY_NONZERO",
+      "label": "INV_UNISWAP_ROUTER_FACTORY_NONZERO",
       "type": "other",
       "rule": "unit:6 (factory) must always return a non-zero address.",
       "explanation": "If the router\u2019s factory is zero, downstream swap operations (in implementations that integrate this router) can misbehave or be redirected via uninitialized state assumptions.",
@@ -1847,7 +1847,7 @@
       "chunk_id": "chunk_7"
     },
     {
-      "id": "INV_LP_CALLER_ISOLATION_UNSTAKE",
+      "label": "INV_LP_CALLER_ISOLATION_UNSTAKE",
       "type": "access",
       "rule": "Calls to unit:625 MUST only update var:EthenaLPStaking.stakes entries that correspond to the caller (msg.sender) and MUST NOT modify other users' stake records.",
       "explanation": "If unit:625 can change stakes for addresses other than msg.sender, an attacker could grief or steal by reducing or manipulating other accounts\u2019 staking positions.",
@@ -1865,7 +1865,7 @@
       "chunk_id": "chunk_8"
     },
     {
-      "id": "INV_LP_CALLER_ISOLATION_WITHDRAW",
+      "label": "INV_LP_CALLER_ISOLATION_WITHDRAW",
       "type": "access",
       "rule": "Calls to unit:708 MUST only update var:EthenaLPStaking.stakes entries that correspond to the caller (msg.sender) and MUST NOT modify other users' stake records.",
       "explanation": "Withdraw paths are high-impact. Any ability to alter other users\u2019 stake state can enable theft or denial-of-service against stakers.",
@@ -1883,7 +1883,7 @@
       "chunk_id": "chunk_8"
     },
     {
-      "id": "INV_LP_NO_INCREASE_ON_UNSTAKE",
+      "label": "INV_LP_NO_INCREASE_ON_UNSTAKE",
       "type": "conservation",
       "rule": "A successful call to unit:625 MUST NOT increase the caller\u2019s position in var:EthenaLPStaking.stakes for the affected staking token; it may only decrease it or keep it unchanged (e.g., if unstake amount is zero and allowed).",
       "explanation": "If unstake can increase recorded stake, users could inflate their staking balance without depositing tokens, leading to reward theft and/or unbacked withdrawals.",
@@ -1901,7 +1901,7 @@
       "chunk_id": "chunk_8"
     },
     {
-      "id": "INV_LP_NO_INCREASE_ON_WITHDRAW",
+      "label": "INV_LP_NO_INCREASE_ON_WITHDRAW",
       "type": "conservation",
       "rule": "A successful call to unit:708 MUST NOT increase the caller\u2019s position in var:EthenaLPStaking.stakes for the affected staking token; it may only decrease it or keep it unchanged.",
       "explanation": "Withdraw is expected to consume/settle the user\u2019s entitlement. Any increase would indicate accounting corruption, enabling repeated withdrawals or reward farming.",
@@ -1919,7 +1919,7 @@
       "chunk_id": "chunk_8"
     },
     {
-      "id": "INV_LP_OVERDRAW_REVERTS_UNSTAKE",
+      "label": "INV_LP_OVERDRAW_REVERTS_UNSTAKE",
       "type": "ordering",
       "rule": "If a caller attempts to unstake via unit:625 more than their currently recorded stake in var:EthenaLPStaking.stakes for the relevant token, the call MUST revert and MUST NOT change var:EthenaLPStaking.stakes or var:EthenaLPStaking.stakeParametersByToken.",
       "explanation": "Over-unstaking must be impossible; otherwise the stake accounting can underflow or become inconsistent, enabling theft of staked assets and/or rewards.",
@@ -1938,7 +1938,7 @@
       "chunk_id": "chunk_8"
     },
     {
-      "id": "INV_LP_OVERDRAW_REVERTS_WITHDRAW",
+      "label": "INV_LP_OVERDRAW_REVERTS_WITHDRAW",
       "type": "ordering",
       "rule": "If a caller attempts to withdraw via unit:708 more than what is withdrawable according to var:EthenaLPStaking.stakes (e.g., exceeding recorded stake/available amount), the call MUST revert and MUST NOT change var:EthenaLPStaking.stakes or var:EthenaLPStaking.stakeParametersByToken.",
       "explanation": "Over-withdraw must be prevented to avoid draining the staking contract and breaking solvency for other participants.",
@@ -1957,7 +1957,7 @@
       "chunk_id": "chunk_8"
     },
     {
-      "id": "INV_LP_TOKEN_PARAMETER_ISOLATION",
+      "label": "INV_LP_TOKEN_PARAMETER_ISOLATION",
       "type": "other",
       "rule": "For unit:625 and unit:708, updates to var:EthenaLPStaking.stakeParametersByToken MUST be isolated to the staking token being acted upon; entries for other tokens in var:EthenaLPStaking.stakeParametersByToken MUST remain unchanged within the same transaction.",
       "explanation": "Cross-token parameter corruption can let an attacker manipulate reward/lock parameters of unrelated pools, potentially enabling reward extraction or locking funds for other LP tokens.",
@@ -1976,7 +1976,7 @@
       "chunk_id": "chunk_8"
     },
     {
-      "id": "INV_LP_STATE_CHANGE_COUPLING",
+      "label": "INV_LP_STATE_CHANGE_COUPLING",
       "type": "ordering",
       "rule": "Within a successful call to unit:625 or unit:708, if var:EthenaLPStaking.stakes does not change (same values before/after), then var:EthenaLPStaking.stakeParametersByToken MUST also remain unchanged.",
       "explanation": "Decoupled changes (changing parameters without any stake movement) are a common symptom of broken accounting, rounding exploits, or unintended side effects that can be abused to skew rewards.",
@@ -1996,7 +1996,7 @@
       "chunk_id": "chunk_8"
     },
     {
-      "id": "INV_LP_REENTRANCY_NO_DOUBLE_SPEND",
+      "label": "INV_LP_REENTRANCY_NO_DOUBLE_SPEND",
       "type": "reentrancy",
       "rule": "Reentrant execution paths involving unit:625 and/or unit:708 (directly or indirectly) MUST NOT allow a caller to end with a net decrease in var:EthenaLPStaking.stakes that is smaller than the value withdrawn/unstaked, and MUST NOT allow the caller to withdraw/unstake more than their pre-transaction stake.",
       "explanation": "If external calls during unstake/withdraw allow reentrancy before state is finalized, an attacker can withdraw multiple times against the same recorded stake (classic double-spend pattern).",
@@ -2015,7 +2015,7 @@
       "chunk_id": "chunk_8"
     },
     {
-      "id": "INV_WETH_ROUNDTRIP_CONSERVATION",
+      "label": "INV_WETH_ROUNDTRIP_CONSERVATION",
       "type": "conservation",
       "rule": "For contracts/interfaces/archive/IWETH.sol, an account performing unit:6141 followed by unit:6146 for the same amount MUST end with the same WETH balance as before and approximately the same ETH balance (modulo gas), and total token/ETH value MUST be conserved by the wrapper.",
       "explanation": "WETH wrappers are frequently used as settlement assets. Any mismatch in mint/burn behavior can be exploited to create or destroy value, breaking protocol assumptions about collateral accounting.",
@@ -2032,7 +2032,7 @@
       "chunk_id": "chunk_8"
     },
     {
-      "id": "INV_WETH10_MINT_BURN_EXACTNESS",
+      "label": "INV_WETH10_MINT_BURN_EXACTNESS",
       "type": "conservation",
       "rule": "For contracts/interfaces/archive/IWETH10.sol: unit:6155 and unit:6161 MUST mint exactly msg.value of WETH10 to the recipient, and unit:6167/unit:6175/unit:6185 MUST burn exactly the withdrawn amount of WETH10 from the appropriate holder while transferring exactly that much ETH to the specified recipient.",
       "explanation": "Any discrepancy (minting more than ETH in, or withdrawing more than tokens burned) enables value creation and can be chained into larger exploits in protocols relying on WETH10 for custody and transfers.",
@@ -2052,7 +2052,7 @@
       "chunk_id": "chunk_8"
     },
     {
-      "id": "INV_EETH_SUPPLY_BALANCE_DELTA",
+      "label": "INV_EETH_SUPPLY_BALANCE_DELTA",
       "type": "conservation",
       "rule": "For contracts/interfaces/archive/IeETH.sol: unit:6235 MUST increase the recipient\u2019s eETH balance and total supply by the minted amount; unit:6242 MUST decrease the caller\u2019s balance and total supply by the burned amount; unit:6249 MUST not succeed unless the caller has sufficient allowance and MUST decrease the from-address balance and total supply by exactly the burned amount.",
       "explanation": "Supply/balance inconsistencies or missing allowance checks enable unauthorized burning/minting, breaking collateral invariants for any system using eETH as backing or accounting reference.",
@@ -2070,7 +2070,7 @@
       "chunk_id": "chunk_8"
     },
     {
-      "id": "INV_MOCKTOKEN_DECIMALS_IMMUTABLE_UNDER_MINT",
+      "label": "INV_MOCKTOKEN_DECIMALS_IMMUTABLE_UNDER_MINT",
       "type": "other",
       "rule": "In contracts/mock/MockToken.sol, var:MockToken.__decimals (as returned by unit:6314) MUST remain unchanged across any number of calls to unit:6326 and/or unit:6339.",
       "explanation": "Even in mocks, changing decimals after minting breaks downstream accounting and test assumptions; in real tokens it would be catastrophic for conversions, pricing, and vault share math.",
@@ -2090,7 +2090,7 @@
       "chunk_id": "chunk_8"
     },
     {
-      "id": "INV_MOCKUSDT_DECIMALS_STABLE_UNDER_MINT",
+      "label": "INV_MOCKUSDT_DECIMALS_STABLE_UNDER_MINT",
       "type": "other",
       "rule": "In contracts/mock/MockUSDT.sol, unit:6376 MUST return a constant decimals value that remains unchanged across any number of calls to unit:6388.",
       "explanation": "Stable decimals are required for consistent unit conversions (especially for USDT-like assets). If decimals could change, it could cause systematic mispricing or mis-accounting in integrations and tests.",

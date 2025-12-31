@@ -384,7 +384,7 @@ class InvariantProcess(BaseProcess[InvariantProcessInput, InvariantProcessOutput
 
                 invariants.append(
                     Invariant(
-                        id=item.get("id", f"INV_{len(invariants)}"),
+                        label=item.get("label", item.get("id", f"INV_{len(invariants)}")),
                         type=inv_type,
                         rule=item.get("rule", ""),
                         explanation=item.get("explanation", ""),
@@ -458,7 +458,7 @@ class InvariantProcess(BaseProcess[InvariantProcessInput, InvariantProcessOutput
             # Drop if any invalid IDs
             if invalid_funcs or invalid_vars or invalid_files:
                 self.logger.debug(
-                    f"Dropping {inv.id}: invalid IDs - "
+                    f"Dropping {inv.label}: invalid Labels - "
                     f"funcs={invalid_funcs}, vars={invalid_vars}, files={invalid_files}"
                 )
                 dropped += 1
@@ -470,7 +470,7 @@ class InvariantProcess(BaseProcess[InvariantProcessInput, InvariantProcessOutput
                 and not inv.target_var_ids
                 and not inv.target_file_ids
             ):
-                self.logger.debug(f"Dropping {inv.id}: no targets")
+                self.logger.debug(f"Dropping {inv.label}: no targets")
                 dropped += 1
                 continue
 

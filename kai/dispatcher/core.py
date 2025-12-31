@@ -891,7 +891,7 @@ class Dispatcher:
             # Synthesize invariant from observation
             new_inv = await self._synthesize_invariant(obs)
             if new_inv and new_inv.id not in self.invariants:
-                self.logger.info(f"New invariant discovered: {new_inv.id}")
+                self.logger.info(f"New invariant discovered: {new_inv.label}")
                 self.invariants[new_inv.id] = new_inv
                 self._schedule_missions_for_invariant(new_inv)
 

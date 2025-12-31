@@ -57,7 +57,7 @@ testing with a fake malicious token is NOT a valid exploit.
 ## Context
 
 ### Target Invariant
-- **ID:** {{invariant_id}}
+- **Label:** {{invariant_label}}
 - **Type:** {{invariant_type}}
 - **Rule:** {{invariant_rule}}
 - **Explanation:** {{invariant_explanation}}

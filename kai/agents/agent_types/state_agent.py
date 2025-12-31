@@ -148,7 +148,7 @@ class StateAgent(BaseAgent):
         # Substitute template variables
         replacements = {
             "{{max_tool_turns}}": str(self.max_tool_turns),
-            "{{invariant_id}}": invariant.id,
+            "{{invariant_label}}": invariant.label,
             "{{invariant_type}}": invariant.type.value if invariant.type else "unknown",
             "{{invariant_rule}}": invariant.rule,
             "{{invariant_explanation}}": invariant.explanation or "N/A",

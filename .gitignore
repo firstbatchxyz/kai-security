@@ -7,6 +7,9 @@ wheels/
 *.egg-info
 data_gen/instances/
 
+# Debugger
+.vscode/
+
 # Virtual environments
 .venv
 

@@ -1,3 +1,4 @@
+import secrets
 from enum import Enum
 from typing import Optional, List, Dict, Any, Literal
 
@@ -123,7 +124,8 @@ class Invariant(BaseModel):
     Output of InvariantProcess, consumed by Dispatcher and Workers.
     """
 
-    id: str  # e.g., "INV_SUPPLY_CONSERVATION", "INV_ADMIN_UPGRADE"
+    id: str = Field(default_factory=lambda: secrets.token_hex(12))
+    label: str  # e.g., "INV_SUPPLY_CONSERVATION", "INV_ADMIN_UPGRADE"
     type: InvariantType
     rule: str  # Human-readable invariant statement
     explanation: str = ""  # LLM's reasoning for this invariant

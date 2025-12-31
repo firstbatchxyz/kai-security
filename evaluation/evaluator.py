@@ -86,7 +86,7 @@ class BlackboxEvaluator:
             invariant=invariant,
         )
 
-        self.logger.info(f"Recorded invariant {invariant.id}")
+        self.logger.info(f"Recorded invariant {invariant.label}")
 
     def record_synthesis_failure(
         self,
