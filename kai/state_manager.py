@@ -10,7 +10,6 @@ from typing import List, Optional, Dict, Any, Literal
 
 from kai.schemas import (
     ActorMatrix,
-    AgentRecord,
     ExploitCandidate,
     Fix,
     Invariant,
@@ -136,7 +135,7 @@ class KaiStateManager(ABC):
         missions: List[Mission],
         campaign_id_map: Optional[Dict[str, str]] = None,
         invariant_id_map: Optional[Dict[str, str]] = None,
-    ) -> bool:
+    ) -> Dict[str, str]:
         """
         Save missions.
 
@@ -146,7 +145,7 @@ class KaiStateManager(ABC):
             invariant_id_map: Optional mapping of invariant.id -> MongoDB _id
 
         Returns:
-            True if successful
+            Dict mapping mission.mission_id -> MongoDB _id (as string)
         """
         pass
 

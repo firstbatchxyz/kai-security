@@ -9,7 +9,6 @@ from pydantic import BaseModel
 
 from kai.schemas import (
     ActorMatrix,
-    AgentRecord,
     CampaignBrief,
     ExploitCandidate,
     Fix,
@@ -98,8 +97,8 @@ class LocalStateManager(KaiStateManager):
         missions: List[Mission],
         campaign_id_map: Optional[Dict[str, str]] = None,
         invariant_id_map: Optional[Dict[str, str]] = None,
-    ) -> bool:
-        return True
+    ) -> Dict[str, str]:
+        return {}
 
     async def update_mission_status(
         self,

@@ -77,7 +77,8 @@ class StateAgentResult:
                     compiled=False,  # Verifier will validate
                     logs=[],
                 )
-            )\n        return candidates
+            )
+        return candidates
 
 
 class StateAgent(BaseAgent):

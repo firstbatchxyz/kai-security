@@ -97,27 +97,6 @@ class ExploitSeverity(str, Enum):
     LOW = "low"
 
 
-# ---------------------------
-# Agent Record (for Agent Tracking in MongoDB)
-# ---------------------------
-
-
-class AgentRecord(BaseModel):
-    """
-    Record of an agent execution for MongoDB tracking.
-    
-    Created when an agent starts, updated when it completes.
-    The _id in MongoDB equals the agentId used in exploits collection.
-    
-    MongoDB fields use camelCase (executionId, agentType, completedAt)
-    """
-    
-    agent_id: str = Field(serialization_alias="agentId")  # Same as agentId in exploits
-    execution_id: Optional[str] = Field(default=None, serialization_alias="executionId")
-    agent_type: str = Field(serialization_alias="agentType")  # AgentType enum value
-    created_at: Optional[Any] = Field(default=None, serialization_alias="createdAt")  # datetime
-    completed_at: Optional[Any] = Field(default=None, serialization_alias="completedAt")  # datetime
-
 
 # ---------------------------
 # Invariant Types (for InvariantProcess → Dispatcher)
