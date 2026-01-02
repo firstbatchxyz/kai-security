@@ -762,7 +762,8 @@ class CampaignBrief(BaseModel):
     Self-contained: agents can execute with only this + workspace.
     """
 
-    campaign_id: str
+    id: str = Field(default_factory=lambda: secrets.token_hex(12))  # ObjectId-compatible unique identifier
+    label: str  # e.g., "CMP_BLACKBOX_GLOBAL", "CMP_CLS_0"
     mode: CampaignMode = CampaignMode.INVARIANT_BOUNDED
     agent_types: List[MissionAgentType] = Field(default_factory=list)
     framework: Optional[str] = None

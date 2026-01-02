@@ -430,7 +430,7 @@ class Dispatcher:
 
         for mission in missions:
             campaign = next(
-                (c for c in campaigns if c.campaign_id == mission.campaign_id), None
+                (c for c in campaigns if c.id == mission.campaign_id), None
             )
             priority = campaign.priority if campaign else 1
             self.mission_queue.put_nowait((priority, mission.mission_id, mission))

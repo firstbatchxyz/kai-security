@@ -1,5 +1,5 @@
 {
-  "campaign_id": "CMP_BBP_FIXTURE",
+  "label": "CMP_BBP_FIXTURE",
   "kind": "invariant_bounded",
   "invariant_ids": [
     "INV_BBP_FIXTURE_1"

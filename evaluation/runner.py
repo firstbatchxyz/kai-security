@@ -78,7 +78,7 @@ class BlackboxEvaluationRunner:
     async def run_full_pipeline(
         self,
         num_turns: int = 50,
-        campaign_id: Optional[str] = None,
+        campaign_label: Optional[str] = None,
     ) -> BlackboxEvaluationReport:
         """
         Execute the full Blackbox -> Synthesizer -> Evaluation pipeline.
@@ -92,13 +92,13 @@ class BlackboxEvaluationRunner:
 
         Args:
             num_turns: Budget for Blackbox Agent.
-            campaign_id: Optional campaign ID for tracking.
+            campaign_label: Optional campaign label for tracking.
 
         Returns:
             Complete evaluation report.
         """
-        campaign_id = campaign_id or f"eval_campaign_{uuid.uuid4().hex[:8]}"
-        self.logger.info(f"Starting full pipeline evaluation: {campaign_id}")
+        campaign_label = campaign_label or f"eval_campaign_{uuid.uuid4().hex[:8]}"
+        self.logger.info(f"Starting full pipeline evaluation: {campaign_label}")
 
         # Step 1: Build dependency graph
         self.logger.info("Step 1/4: Building dependency graph...")
@@ -106,7 +106,7 @@ class BlackboxEvaluationRunner:
 
         # Step 2: Run Blackbox Agent
         self.logger.info("Step 2/4: Running Blackbox Agent...")
-        await self._run_blackbox_agent(num_turns, campaign_id)
+        await self._run_blackbox_agent(num_turns, campaign_label)
 
         # Step 3 & 4: Synthesize and evaluate
         self.logger.info("Step 3/4: Synthesizing and evaluating invariants...")
@@ -162,14 +162,14 @@ class BlackboxEvaluationRunner:
     async def _run_blackbox_agent(
         self,
         num_turns: int,
-        campaign_id: str,
+        campaign_label: str,
     ) -> None:
         """Run the Blackbox Agent to collect observations."""
         from kai.agents.agent_types import BlackboxAgent
 
         # Create campaign brief
         brief = CampaignBrief(
-            campaign_id=campaign_id,
+            label=campaign_label,
             kind="blackbox_evaluation",
             invariant_ids=[],
             entrypoints_subset=EntrypointsSubset(function_ids=[]),
@@ -180,7 +180,7 @@ class BlackboxEvaluationRunner:
 
         # Setup Foundry environment
         repo_slug = self._repo_slug(self.repo_path)
-        foundry_root = self.output_dir / "foundry" / campaign_id / repo_slug
+        foundry_root = self.output_dir / "foundry" / campaign_label / repo_slug
         foundry_cache = foundry_root / "cache"
         foundry_out = foundry_root / "out"
         foundry_cache.mkdir(parents=True, exist_ok=True)
@@ -203,7 +203,7 @@ class BlackboxEvaluationRunner:
             )
 
             # Setup campaigns directory
-            campaigns_root = self.output_dir / "campaigns" / campaign_id / repo_slug
+            campaigns_root = self.output_dir / "campaigns" / campaign_label / repo_slug
             campaigns_root.mkdir(parents=True, exist_ok=True)
             setattr(agent, "campaigns_dir", str(campaigns_root))
 

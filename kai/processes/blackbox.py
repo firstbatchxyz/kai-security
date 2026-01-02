@@ -42,7 +42,7 @@ class BlackboxProcess(BaseProcess[BlackboxInput, BlackboxOutput]):
 
         # Ensure Foundry artifacts (cache/out) do not write into the target repo.
         # Some repos configure cache_path/out inside the repo and may have restrictive perms.
-        campaign_id = getattr(brief, "campaign_id", None) or "CMP_UNKNOWN"
+        campaign_label = getattr(brief, "label", None) or "CMP_UNKNOWN"
         # Use the MasterContext.root_path basename for output paths to keep tests stable
         # even when we normalize repo_path for tooling.
         repo_slug = self._repo_slug(ctx_root_path)
@@ -50,7 +50,7 @@ class BlackboxProcess(BaseProcess[BlackboxInput, BlackboxOutput]):
             self._project_root()
             / "output"
             / "campaigns"
-            / str(campaign_id)
+            / str(campaign_label)
             / repo_slug
             / "_foundry"
         )
@@ -105,7 +105,7 @@ class BlackboxProcess(BaseProcess[BlackboxInput, BlackboxOutput]):
                 self._project_root()
                 / "output"
                 / "campaigns"
-                / str(campaign_id)
+                / str(campaign_label)
                 / repo_slug
                 / agent.agent_id
             )
@@ -144,7 +144,7 @@ class BlackboxProcess(BaseProcess[BlackboxInput, BlackboxOutput]):
                 messages=[m.model_dump() for m in agent.messages],
                 metadata={
                     "repo_path": repo_path,
-                    "campaign_id": campaign_id,
+                    "campaign_label": campaign_label,
                     "estimated_cost": agent.estimated_cost,
                     "total_tokens": agent.total_tokens,
                     "time_spent": agent.time_spent,
@@ -176,7 +176,7 @@ class BlackboxProcess(BaseProcess[BlackboxInput, BlackboxOutput]):
                     payload = {
                         "agent_id": agent.agent_id,
                         "repo_path": repo_path,
-                        "campaign_id": campaign_id,
+                        "campaign_label": campaign_label,
                         "success": success,
                         "error_message": error_message,
                         "estimated_cost": agent.estimated_cost,

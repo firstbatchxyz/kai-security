@@ -113,7 +113,7 @@ async def cmd_run(args: argparse.Namespace) -> int:
     print(f"Running full pipeline on {args.repo_path}...")
     report = await runner.run_full_pipeline(
         num_turns=args.num_turns,
-        campaign_id=args.campaign_id,
+        campaign_label=args.campaign_label,
     )
 
     # Print summary
@@ -254,9 +254,9 @@ def main() -> int:
         help="Use OpenAI API directly instead of OpenRouter",
     )
     run_parser.add_argument(
-        "--campaign-id",
+        "--campaign-label",
         default=None,
-        help="Campaign ID for tracking (auto-generated if not provided)",
+        help="Campaign label for tracking (auto-generated if not provided)",
     )
 
     # deduplicate: Post-hoc bulk deduplication with parallel LLM calls

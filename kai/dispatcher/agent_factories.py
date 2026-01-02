@@ -252,7 +252,7 @@ def create_blackbox_agent(
                 break
 
     campaign_brief = CampaignBrief(
-        campaign_id=mission.campaign_id,
+        label=f"CMP_MISSION_{mission.mission_id[:8]}",
         agent_types=[mission.agent_type],
         framework=framework,
         scope=CampaignScope(),

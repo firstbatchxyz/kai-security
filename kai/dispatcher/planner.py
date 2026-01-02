@@ -238,7 +238,7 @@ class MissionPlanner:
             framework = self.master_context.frameworks[0]
 
         return CampaignBrief(
-            campaign_id=f"CMP_{cluster.cluster_id}",
+            label=f"CMP_{cluster.cluster_id}",
             mode=CampaignMode.INVARIANT_BOUNDED,
             agent_types=agent_types,
             framework=framework,
@@ -324,7 +324,7 @@ class MissionPlanner:
 
         campaigns.append(
             CampaignBrief(
-                campaign_id="CMP_BLACKBOX_GLOBAL",
+                label="CMP_BLACKBOX_GLOBAL",
                 mode=CampaignMode.EXPLORATORY,
                 agent_types=[MissionAgentType.BLACKBOX],
                 framework=framework,
@@ -347,7 +347,7 @@ class MissionPlanner:
 
         campaigns.append(
             CampaignBrief(
-                campaign_id="CMP_GAMIFIED_GLOBAL",
+                label="CMP_GAMIFIED_GLOBAL",
                 mode=CampaignMode.GAME,
                 agent_types=[MissionAgentType.GAMIFIED],
                 framework=framework,
@@ -380,7 +380,7 @@ class MissionPlanner:
                     missions.append(
                         Mission(
                             mission_id=generate_mission_id(),
-                            campaign_id=campaign.campaign_id,
+                            campaign_id=campaign.id,
                             invariant_id=inv.id,
                             invariant=inv,
                             agent_type=agent_type,
@@ -396,7 +396,7 @@ class MissionPlanner:
                 missions.append(
                     Mission(
                         mission_id=generate_mission_id(),
-                        campaign_id=campaign.campaign_id,
+                        campaign_id=campaign.id,
                         invariant_id=None,
                         invariant=None,
                         agent_type=agent_type,
