@@ -17,6 +17,24 @@ from typing import Dict, List, Optional, Any
 
 
 @dataclass
+class InstallResult:
+    """Result from a dependency installation attempt."""
+
+    success: bool
+    installed: List[str] = field(default_factory=list)
+    errors: List[str] = field(default_factory=list)
+    raw_output: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "success": self.success,
+            "installed": self.installed,
+            "errors": self.errors,
+            "raw_output": self.raw_output,
+        }
+
+
+@dataclass
 class CompileResult:
     """Result from a compilation attempt."""
 
@@ -112,6 +130,34 @@ class ToolAdapter(ABC):
             CompileResult with success status and parsed errors
         """
         ...
+
+    def install_dependencies(
+        self,
+        workspace_path: Path,
+        packages: Optional[List[str]] = None,
+        timeout: int = 300,
+    ) -> InstallResult:
+        """
+        Install project dependencies.
+
+        This method installs framework-specific dependencies. If no packages are
+        specified, it attempts to install all dependencies defined in config files
+        (e.g., .gitmodules for Foundry, package.json for Hardhat).
+
+        Args:
+            workspace_path: Path to the workspace directory
+            packages: Optional list of specific packages to install (e.g., ["OpenZeppelin/openzeppelin-contracts"])
+            timeout: Timeout in seconds
+
+        Returns:
+            InstallResult with success status, installed packages, and any errors
+        """
+        # Default implementation: no-op (override in subclasses)
+        return InstallResult(
+            success=True,
+            installed=[],
+            raw_output="No dependency installation required for this framework",
+        )
 
     @abstractmethod
     def run_test(

@@ -77,15 +77,12 @@ class MissionPlanner:
         base_mission_index: int = 0,
     ) -> Tuple[List[CampaignBrief], List[Mission]]:
         """
-        Build campaigns and missions from invariants.
+        Build STATE/QUANT campaigns and missions from invariants.
 
-        Returns (campaigns, missions). Missions have stable IDs assigned from base_mission_index.
+        Returns (campaigns, missions).
         """
         clusters = self._cluster_invariants(invariants)
         campaigns = self._build_campaigns(clusters, invariants)
-
-        if self.include_exploration:
-            campaigns.extend(self._build_exploration_campaigns())
 
         missions: List[Mission] = []
         for campaign in campaigns:
@@ -313,8 +310,12 @@ class MissionPlanner:
             return WorkspacePreset.WRITEABLE
         return WorkspacePreset.CLEAN
 
-    def _build_exploration_campaigns(self) -> List[CampaignBrief]:
-        campaigns: List[CampaignBrief] = []
+    def build_blackbox_campaign(self) -> Tuple[CampaignBrief, List[Mission]]:
+        """
+        Build blackbox campaign and missions.
+
+        Called as a separate phase before state/quant to discover new invariants.
+        """
         all_eps = self.graph.public_entrypoints()
         all_roles = [role.name for role in self.actor_matrix.roles]
 
@@ -322,52 +323,29 @@ class MissionPlanner:
         if self.master_context and self.master_context.frameworks:
             framework = self.master_context.frameworks[0]
 
-        campaigns.append(
-            CampaignBrief(
-                label="CMP_BLACKBOX_GLOBAL",
-                mode=CampaignMode.EXPLORATORY,
-                agent_types=[MissionAgentType.BLACKBOX],
-                framework=framework,
-                workspace_preset=WorkspacePreset.SANDBOX,
-                scope=CampaignScope(
-                    entrypoints_subset=EntrypointSubset(
-                        ids=all_eps, policy=EntrypointPolicy()
-                    ),
-                    actor_roles=all_roles,
+        campaign = CampaignBrief(
+            label="CMP_BLACKBOX_GLOBAL",
+            mode=CampaignMode.EXPLORATORY,
+            agent_types=[MissionAgentType.BLACKBOX],
+            framework=framework,
+            workspace_preset=WorkspacePreset.SANDBOX,
+            scope=CampaignScope(
+                entrypoints_subset=EntrypointSubset(
+                    ids=all_eps, policy=EntrypointPolicy()
                 ),
-                invariants=[],
-                objectives=CampaignObjectives(
-                    reward_model=RewardModel.COVERAGE, notes="Anomaly detection"
-                ),
-                budget=self.default_budget,
-                master_context=self.master_context,
-                priority=2,
-            )
+                actor_roles=all_roles,
+            ),
+            invariants=[],
+            objectives=CampaignObjectives(
+                reward_model=RewardModel.COVERAGE, notes="Anomaly detection"
+            ),
+            budget=self.default_budget,
+            master_context=self.master_context,
+            priority=0,  # Runs first
         )
 
-        campaigns.append(
-            CampaignBrief(
-                label="CMP_GAMIFIED_GLOBAL",
-                mode=CampaignMode.GAME,
-                agent_types=[MissionAgentType.GAMIFIED],
-                framework=framework,
-                workspace_preset=WorkspacePreset.SANDBOX,
-                scope=CampaignScope(
-                    entrypoints_subset=EntrypointSubset(
-                        ids=all_eps, policy=EntrypointPolicy()
-                    ),
-                    actor_roles=all_roles,
-                ),
-                invariants=[],
-                objectives=CampaignObjectives(
-                    reward_model=RewardModel.PROFIT, notes="Maximize attacker payoff"
-                ),
-                budget=self.default_budget,
-                master_context=self.master_context,
-                priority=2,
-            )
-        )
-        return campaigns
+        missions = self._spawn_missions_from_campaign(campaign, base_id=0)
+        return campaign, missions
 
     def _spawn_missions_from_campaign(
         self, campaign: CampaignBrief, *, base_id: int
@@ -392,13 +370,20 @@ class MissionPlanner:
                         )
                     )
         else:
+            # Non-invariant-bounded modes (EXPLORATORY, GAME)
             for agent_type in campaign.agent_types:
+                # For GAMIFIED agents, set invariant_cluster to the full cluster
+                invariant_cluster = None
+                if agent_type == MissionAgentType.GAMIFIED and campaign.invariants:
+                    invariant_cluster = campaign.invariants
+
                 missions.append(
                     Mission(
                         mission_id=generate_mission_id(),
                         campaign_id=campaign.id,
                         invariant_id=None,
                         invariant=None,
+                        invariant_cluster=invariant_cluster,
                         agent_type=agent_type,
                         scope=campaign.scope,
                         workspace_preset=campaign.workspace_preset,
@@ -434,3 +419,76 @@ class MissionPlanner:
             )
 
         return missions
+
+    def build_gamified_campaigns(
+        self, invariants: List[Invariant]
+    ) -> Tuple[List[CampaignBrief], List[Mission]]:
+        """
+        Build gamified campaigns and missions from invariant clusters.
+
+        Called during phase 2 of two-phase execution, after state/quant missions complete.
+        Creates one gamified campaign per cluster, using the same clustering logic.
+
+        Args:
+            invariants: Full list of invariants to cluster
+
+        Returns:
+            Tuple of (campaigns, missions) for gamified agents
+        """
+        # Re-cluster invariants (or use cached clusters if available)
+        clusters = self._cluster_invariants(invariants)
+        inv_by_id = {inv.id: inv for inv in invariants}
+
+        framework = None
+        if self.master_context and self.master_context.frameworks:
+            framework = self.master_context.frameworks[0]
+
+        campaigns: List[CampaignBrief] = []
+        missions: List[Mission] = []
+
+        for cluster in clusters:
+            # Get invariants for this cluster
+            cluster_invariants = [
+                inv_by_id[inv_id]
+                for inv_id in cluster.invariant_ids
+                if inv_id in inv_by_id
+            ]
+
+            if not cluster_invariants:
+                continue
+
+            # Derive scope from cluster
+            entrypoints = self._derive_entrypoints(cluster)
+            actor_roles = self._derive_actor_roles(cluster)
+
+            campaign = CampaignBrief(
+                label=f"CMP_GAMIFIED_{cluster.cluster_id}",
+                mode=CampaignMode.GAME,
+                agent_types=[MissionAgentType.GAMIFIED],
+                framework=framework,
+                workspace_preset=WorkspacePreset.SANDBOX,
+                scope=CampaignScope(
+                    entrypoints_subset=EntrypointSubset(
+                        ids=entrypoints, policy=EntrypointPolicy()
+                    ),
+                    primary_var_ids=cluster.primary_var_ids,
+                    actor_roles=actor_roles,
+                ),
+                invariants=cluster_invariants,
+                objectives=CampaignObjectives(
+                    reward_model=RewardModel.PROFIT,
+                    notes=f"Gap exploitation for {cluster.cluster_id}",
+                ),
+                budget=self.default_budget,
+                master_context=self.master_context,
+                priority=2,
+            )
+            campaigns.append(campaign)
+
+            # Spawn mission using existing logic
+            campaign_missions = self._spawn_missions_from_campaign(
+                campaign, base_id=len(missions)
+            )
+            missions.extend(campaign_missions)
+
+        return campaigns, missions

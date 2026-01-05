@@ -273,12 +273,110 @@ def create_blackbox_agent(
     return agent
 
 
+def create_gamified_agent(
+    mission: Mission,
+    workspace_path: str,
+    master_context: MasterContext,
+    dependency_graph: Optional[DependencyGraph] = None,
+    actor_matrix: Optional[ActorMatrix] = None,
+    protocol_manifesto=None,
+    model: str = settings.GAMIFIED_DEFAULT_MODEL,
+    use_openai: bool = False,
+    execution_id: Optional[str] = None,
+):
+    """
+    Factory function to create a properly configured GamifiedAgent.
+
+    GamifiedAgent receives an invariant cluster and discovers exploitation
+    opportunities by reasoning about gaps between invariants.
+
+    Args:
+        mission: The mission to execute (must have invariant_cluster set)
+        workspace_path: Path to the provisioned workspace
+        master_context: MasterContext from preprocessing
+        dependency_graph: Optional DependencyGraph for code analysis tools
+        actor_matrix: Optional ActorMatrix for actor context
+        protocol_manifesto: Optional ProtocolManifesto for system context
+        model: Model to use for inference (defaults to GAMIFIED_DEFAULT_MODEL)
+        use_openai: Whether to use OpenAI API directly
+        execution_id: Optional execution ID for logging
+
+    Returns:
+        Configured GamifiedAgent ready for chat_with_tools()
+    """
+    from kai.agents.agent_types.gamified_agent import GamifiedAgent
+
+    # Get the invariant cluster from mission
+    invariant_cluster = mission.invariant_cluster or []
+    if not invariant_cluster and mission.invariant:
+        # Fallback: wrap single invariant in a list
+        invariant_cluster = [mission.invariant]
+
+    # Extract vars in scope from the cluster's target variables
+    vars_in_scope = []
+    if dependency_graph and invariant_cluster:
+        from kai.schemas import VarVocabEntry
+
+        seen_var_ids = set()
+        for inv in invariant_cluster:
+            for var_id in inv.target_var_ids:
+                if var_id in seen_var_ids:
+                    continue
+                seen_var_ids.add(var_id)
+                node = dependency_graph._nodes.get(var_id)
+                if node:
+                    # Get writers and readers from graph edges
+                    # _edges is Dict[(src, kind, dst), EdgeMeta]
+                    writers = []
+                    readers = []
+                    for src, kind, dst in dependency_graph._edges:
+                        if dst == var_id and kind.name == "WRITES":
+                            writers.append(src)
+                        if src == var_id and kind.name == "READS":
+                            readers.append(dst)
+                    vars_in_scope.append(
+                        VarVocabEntry(
+                            id=var_id,
+                            name=node.name,
+                            container=node.parent_id or "",
+                            file=node.span.file if node.span else "",
+                            writers=writers,
+                            readers=readers,
+                        )
+                    )
+
+    # Create the agent
+    agent = GamifiedAgent(
+        mission=mission,
+        master_context=master_context,
+        invariant_cluster=invariant_cluster,
+        vars_in_scope=vars_in_scope,
+        actor_matrix=actor_matrix,
+        protocol_manifesto=protocol_manifesto,
+        dependency_graph=dependency_graph,
+        max_tool_turns=mission.max_turns,
+        repo_path=workspace_path,
+        model=model,
+        use_openai=use_openai,
+        execution_id=execution_id,
+    )
+
+    # Set workspace path for tools
+    agent.workspace_path = workspace_path
+
+    # Set up toolcalling prompt
+    cluster_id = mission.campaign_id or "default"
+    agent.set_toolcalling_prompt(cluster_id=cluster_id)
+
+    return agent
+
+
 # Registry of agent factories by type
 AGENT_FACTORIES: Dict[MissionAgentType, Any] = {
     MissionAgentType.STATE: create_state_agent,
     MissionAgentType.QUANT: create_quant_agent,
     MissionAgentType.BLACKBOX: create_blackbox_agent,
-    # MissionAgentType.GAMIFIED: create_gamified_agent,  # TODO
+    MissionAgentType.GAMIFIED: create_gamified_agent,
 }
 
 

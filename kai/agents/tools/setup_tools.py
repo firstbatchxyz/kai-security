@@ -1,7 +1,7 @@
 import os
 import subprocess
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 # Expose common repo inspection + file editing tools to SetupAgent.
 # The setup prompt expects these primitives for exploration and patching.
@@ -22,6 +22,7 @@ __all__ = [
     "create_file",
     "git_submodule_update",
     "convert_ssh_to_https_in_gitmodules",
+    "install_dependencies",
     "write_and_compile",
     "run_test",
     "register_master_context",
@@ -230,6 +231,79 @@ def convert_ssh_to_https_in_gitmodules(working_dir: Optional[str] = None) -> str
 
     except Exception as e:
         return f"Error: {str(e)}"
+
+
+def install_dependencies(
+    packages: Optional[List[str]] = None,
+    working_dir: Optional[str] = None,
+    timeout: int = 300,
+) -> Dict[str, Any]:
+    """
+    Install project dependencies using the detected framework's package manager.
+
+    For Foundry projects, this uses `forge install` to install Solidity libraries.
+    If no packages are specified, it automatically detects dependencies from .gitmodules.
+
+    This tool should be used BEFORE write_and_compile if git submodule update fails
+    or if the lib/ directory is missing dependencies.
+
+    Args:
+        packages: Optional list of packages to install. Format depends on framework:
+                  - Foundry: ["OpenZeppelin/openzeppelin-contracts", "foundry-rs/forge-std"]
+                  - If None, automatically parses .gitmodules to find packages.
+        working_dir: The directory to run installation from.
+                    If None, uses the agent's working directory.
+        timeout: Installation timeout in seconds (default 300).
+
+    Returns:
+        A dict containing:
+        - success (bool): Whether installation succeeded
+        - installed (List[str]): List of successfully installed packages
+        - errors (List[str]): List of error messages for failed packages
+        - raw_output (str): Raw command output
+
+    Examples:
+        # Auto-detect and install all dependencies from .gitmodules
+        result = install_dependencies()
+
+        # Install specific packages
+        result = install_dependencies(packages=["OpenZeppelin/openzeppelin-contracts"])
+
+        # Install in a subdirectory (for monorepos)
+        result = install_dependencies(working_dir="packages/contracts")
+    """
+    agent = _get_current_agent()
+    if agent is None:
+        return {"success": False, "error": "No agent context available"}
+
+    wd = _resolve_working_dir(working_dir)
+    workspace = Path(wd)
+    framework = _detect_framework(workspace)
+    adapter = get_tool_adapter(framework)
+
+    # Convert packages to list if provided as string
+    pkg_list: Optional[List[str]] = None
+    if packages is not None:
+        if isinstance(packages, str):
+            pkg_list = [packages]
+        else:
+            pkg_list = list(packages)
+
+    install_result = adapter.install_dependencies(
+        workspace_path=workspace,
+        packages=pkg_list,
+        timeout=int(timeout),
+    )
+
+    if not hasattr(agent, "_setup_install_attempts"):
+        agent._setup_install_attempts = 0
+    agent._setup_install_attempts += 1
+
+    payload = install_result.to_dict()
+    payload["attempt"] = agent._setup_install_attempts
+    payload["workspace"] = str(workspace)
+    payload["framework"] = framework
+    return payload
 
 
 def write_and_compile(

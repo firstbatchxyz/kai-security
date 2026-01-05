@@ -49,9 +49,12 @@ You are fixing an ExploitCandidate that was already verified by a Verdict:
    - Choose the simplest correct mitigation consistent with the Verdict’s reasoning.
    - If multiple reasonable fixes exist, pick the most robust one and explain the tradeoff briefly in `reasoning` when registering the fix.
 
-3) **Construct the canonical patch**
-   - Edit the target file(s) content and generate unified diffs with `generate_canonical_diff(file_path, new_content, old_content=...)`.
+3) **Construct the canonical patch (CRITICAL)**
+   - You MUST use `generate_canonical_diff(file_path, new_content)` to create proper unified diffs.
+   - DO NOT hand-write diff hunks or use bare `@@` markers - they will be rejected.
+   - For multi-file fixes, call `generate_canonical_diff` for EACH file and concatenate the results.
    - If you need to apply changes to the workspace files, use `update_file_with_diff(file_path, unified_diff)`.
+   - The diff format requires proper line numbers: `@@ -start,count +start,count @@`
 
 4) **Validate the fix**
    - Validate the fix with `write_and_compile` / `run_test` if you create or adjust a test for regression coverage.

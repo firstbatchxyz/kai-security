@@ -10,6 +10,7 @@ from typing import Optional
 from kai.utils.tool_adapters.base import (
     ToolAdapter,
     CompileResult,
+    InstallResult,
     TestResult,
 )
 from kai.utils.tool_adapters.foundry import FoundryToolAdapter
@@ -19,6 +20,7 @@ from kai.utils.tool_adapters.cmake import CMakeToolAdapter
 __all__ = [
     "ToolAdapter",
     "CompileResult",
+    "InstallResult",
     "TestResult",
     "FoundryToolAdapter",
     "CargoToolAdapter",

@@ -206,7 +206,7 @@ class WorkspaceValidationProcess(
                     settings.OPENROUTER_API_KEY or settings.OPENAI_API_KEY
                 )
                 agent = WorkspaceValidationAgent(
-                    max_tool_turns=8,
+                    max_tool_turns=settings.VALIDATION_MAX_TURNS,
                     repo_path=workspace_path,
                     scope_paths=[workspace_path],
                     model=settings.MAIN_DEFAULT_MODEL,

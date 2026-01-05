@@ -2,15 +2,41 @@
 """
 Playground: Dispatcher E2E Demo
 
-Minimal example showing the full Kai v2 pipeline:
+Full Kai v2 pipeline for security analysis:
 1. Boot (preprocessing: setup → graph → profiler → actors → invariants → planning)
-2. Run Loop (execute missions with STATE/QUANT agents)
+2. Run Loop (execute missions with STATE/QUANT agents, optionally BLACKBOX/GAMIFIED)
 3. Verification (inline after each exploit found)
 4. Fixing (after all missions complete, generates patches for verified exploits)
 
 Usage:
+    # Basic run (State/Quant only, no exploration)
     uv run python scripts/playground_dispatcher.py --repo-path ./master/your-contracts
-    uv run python scripts/playground_dispatcher.py --repo-path ./master/your-contracts --model anthropic/claude-3-5-sonnet
+
+    # With exploration (Blackbox + Gamified phases)
+    uv run python scripts/playground_dispatcher.py --repo-path ./master/your-contracts --exploration
+
+    # Save rollouts for debugging (conversation logs per mission/verifier)
+    uv run python scripts/playground_dispatcher.py --repo-path ./master/your-contracts --save-rollouts
+
+    # Custom model
+    uv run python scripts/playground_dispatcher.py --repo-path ./master/your-contracts --model anthropic/claude-sonnet-4
+
+Options:
+    --repo-path       Path to target repository (required)
+    --model           Main model for State/Quant agents (default: settings.MAIN_DEFAULT_MODEL)
+    --concurrent      Max concurrent agents (default: 2)
+    --max-turns       Max turns per agent (default: settings.MAX_TOOL_TURNS)
+    --exploration     Enable Blackbox/Gamified exploration phases
+    --save-rollouts   Save agent conversation rollouts to output/rollouts/
+
+Output:
+    output/playground/{repo}_{timestamp}/
+    ├── results.json      # Full report with campaigns, missions, verdicts
+    ├── fixes.json        # Generated fixes (if any)
+    ├── workspaces/       # Agent workspaces
+    └── rollouts/         # Agent conversations (if --save-rollouts)
+        ├── missions/     # State/Quant/Blackbox/Gamified agents
+        └── verifier/     # Verifier agent conversations
 """
 
 import asyncio
@@ -42,6 +68,8 @@ async def run_dispatcher_demo(
     model: str = settings.MAIN_DEFAULT_MODEL,
     max_concurrent: int = 2,
     max_turns: int = settings.MAX_TOOL_TURNS,
+    include_exploration: bool = False,
+    save_rollouts: bool = False,
 ) -> None:
     """
     Run the full dispatcher pipeline and print results.
@@ -58,8 +86,14 @@ async def run_dispatcher_demo(
     print("DISPATCHER PLAYGROUND")
     print(f"{'=' * 70}")
     print(f"Repository: {repo_path}")
-    print(f"Model: {model}")
     print(f"Output: {output_dir}")
+    print(f"\nModels:")
+    print(f"  Main (State/Quant): {model}")
+    print(f"  Setup:              {settings.SETUP_DEFAULT_MODEL}")
+    print(f"  Verifier:           {settings.VERIFIER_DEFAULT_MODEL}")
+    print(f"  Gamified:           {settings.GAMIFIED_DEFAULT_MODEL}")
+    print(f"\nExploration: {'enabled' if include_exploration else 'disabled'}")
+    print(f"Save rollouts: {'enabled' if save_rollouts else 'disabled'}")
     print(f"{'=' * 70}\n")
 
     # Configure dispatcher
@@ -67,7 +101,7 @@ async def run_dispatcher_demo(
         max_concurrent_agents=max_concurrent,
         max_invariants_per_cluster=5,
         max_campaigns=10,
-        include_exploration=False,  # Focus on STATE/QUANT agents
+        include_exploration=include_exploration,
         default_budget=CampaignBudget(
             max_missions=10,
             max_agents=4,
@@ -75,7 +109,10 @@ async def run_dispatcher_demo(
         ),
         workspace_dir=str(output_dir / "workspaces"),
         model=model,
+        verifier_model=settings.VERIFIER_DEFAULT_MODEL,
         use_openai=False,
+        save_rollouts=save_rollouts,
+        rollouts_dir=str(output_dir / "rollouts") if save_rollouts else None,
     )
 
     # Create dispatcher (no state manager for simplicity)
@@ -249,6 +286,16 @@ def main():
         default=settings.MAX_TOOL_TURNS,
         help=f"Max turns per agent (default: {settings.MAX_TOOL_TURNS})",
     )
+    parser.add_argument(
+        "--exploration",
+        action="store_true",
+        help="Enable Blackbox/Gamified exploration phases (disabled by default)",
+    )
+    parser.add_argument(
+        "--save-rollouts",
+        action="store_true",
+        help="Save agent conversation rollouts for debugging (default: disabled)",
+    )
 
     args = parser.parse_args()
 
@@ -267,6 +314,8 @@ def main():
             model=args.model,
             max_concurrent=args.concurrent,
             max_turns=args.max_turns,
+            include_exploration=args.exploration,
+            save_rollouts=args.save_rollouts,
         )
     )
 

@@ -235,7 +235,12 @@ class ExploitCandidate(BaseModel):
 
     mission_id: str
     worker_id: str
-    invariant_id: str  # Which invariant this claims to violate
+    invariant_id: (
+        str  # Primary invariant (backwards compat, use invariant_ids for clusters)
+    )
+    invariant_ids: List[str] = Field(
+        default_factory=list
+    )  # All related invariants (for clusters)
     mechanism: str  # "reentrancy", "access_control_bypass", etc.
     poc_code: str  # The exploit contract/test code
     target_file: str
@@ -323,7 +328,10 @@ class Fix(BaseModel):
 
     # References to original finding (for DB linking)
     mission_id: str
-    invariant_id: str
+    invariant_id: str  # Primary invariant (backwards compat)
+    invariant_ids: List[str] = Field(
+        default_factory=list
+    )  # All related invariants (for clusters)
     verdict_id: Optional[str] = None  # If verdicts get IDs
 
     # Fix content
@@ -794,6 +802,8 @@ class Mission(BaseModel):
     # Target invariant (None for exploratory/game modes)
     invariant_id: Optional[str] = None
     invariant: Optional[Invariant] = None
+    # Invariant cluster for gamified agents (multiple related invariants)
+    invariant_cluster: Optional[List[Invariant]] = None
     # Agent assignment
     agent_type: MissionAgentType
     # Inherited from campaign
@@ -946,6 +956,9 @@ class VerifierProcessOutput(BaseModel):
     error_message: Optional[str] = None
     estimated_cost: float = 0.0
     total_tokens: Dict[str, int] = Field(default_factory=dict)
+    # Agent messages for rollout saving (optional)
+    agent_messages: Optional[List[Any]] = None
+    agent_model: Optional[str] = None
 
 
 # ---------------------------

@@ -17,6 +17,7 @@ from typing import Optional, List, Any, Dict
 from kai.utils.tool_adapters.base import (
     ToolAdapter,
     CompileResult,
+    InstallResult,
     TestResult,
 )
 
@@ -128,6 +129,141 @@ class FoundryToolAdapter(ToolAdapter):
                 errors=[str(e)],
                 raw_output="",
             )
+
+    def install_dependencies(
+        self,
+        workspace_path: Path,
+        packages: Optional[List[str]] = None,
+        timeout: int = 300,
+    ) -> InstallResult:
+        """
+        Install Solidity dependencies using forge install.
+
+        If packages are specified, installs those specific packages.
+        Otherwise, parses .gitmodules to find dependencies and installs them.
+
+        Args:
+            workspace_path: Path to the workspace directory
+            packages: Optional list of packages (e.g., ["OpenZeppelin/openzeppelin-contracts"])
+            timeout: Timeout in seconds
+
+        Returns:
+            InstallResult with success status and installed packages
+        """
+        try:
+            forge_bin = self.find_binary()
+        except FileNotFoundError as e:
+            return InstallResult(
+                success=False,
+                errors=[str(e)],
+                raw_output="",
+            )
+
+        # If no packages specified, try to parse from .gitmodules
+        if not packages:
+            packages = self._parse_gitmodules_packages(workspace_path)
+
+        if not packages:
+            return InstallResult(
+                success=True,
+                installed=[],
+                raw_output="No packages to install (no .gitmodules or packages specified)",
+            )
+
+        installed: List[str] = []
+        errors: List[str] = []
+        all_output: List[str] = []
+
+        for package in packages:
+            try:
+                # forge install <package> (default behavior is no commit in newer versions)
+                cmd = [forge_bin, "install", package]
+                result = subprocess.run(
+                    cmd,
+                    cwd=str(workspace_path),
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                )
+
+                output = result.stdout + result.stderr
+                all_output.append(f"=== {package} ===\n{output}")
+
+                if result.returncode == 0:
+                    installed.append(package)
+                else:
+                    # Check if it's already installed (not an error)
+                    if (
+                        "already exists" in output.lower()
+                        or "already installed" in output.lower()
+                    ):
+                        installed.append(package)
+                    else:
+                        errors.append(f"{package}: {output.strip()[:200]}")
+
+            except subprocess.TimeoutExpired:
+                errors.append(f"{package}: Installation timed out after {timeout}s")
+            except Exception as e:
+                errors.append(f"{package}: {str(e)}")
+
+        raw_output = "\n".join(all_output)
+        success = len(installed) > 0 or len(errors) == 0
+
+        return InstallResult(
+            success=success,
+            installed=installed,
+            errors=errors,
+            raw_output=raw_output[:5000] if len(raw_output) > 5000 else raw_output,
+        )
+
+    def _parse_gitmodules_packages(self, workspace_path: Path) -> List[str]:
+        """
+        Parse .gitmodules to extract package URLs for forge install.
+
+        Converts URLs like:
+        - https://github.com/OpenZeppelin/openzeppelin-contracts -> OpenZeppelin/openzeppelin-contracts
+        - git@github.com:foundry-rs/forge-std.git -> foundry-rs/forge-std
+        """
+        gitmodules_path = workspace_path / ".gitmodules"
+        if not gitmodules_path.exists():
+            return []
+
+        packages: List[str] = []
+        try:
+            content = gitmodules_path.read_text()
+            import re
+
+            # Match url = <value> lines
+            url_pattern = re.compile(r"url\s*=\s*(.+)")
+            for match in url_pattern.finditer(content):
+                url = match.group(1).strip()
+                package = self._url_to_package(url)
+                if package:
+                    packages.append(package)
+
+        except Exception:
+            pass
+
+        return packages
+
+    def _url_to_package(self, url: str) -> Optional[str]:
+        """Convert a git URL to a forge install package identifier."""
+        import re
+
+        # Remove .git suffix
+        url = re.sub(r"\.git$", "", url)
+
+        # Handle HTTPS URLs: https://github.com/owner/repo
+        https_match = re.match(r"https?://github\.com/([^/]+)/([^/]+)", url)
+        if https_match:
+            return f"{https_match.group(1)}/{https_match.group(2)}"
+
+        # Handle SSH URLs: git@github.com:owner/repo
+        ssh_match = re.match(r"git@github\.com:([^/]+)/([^/]+)", url)
+        if ssh_match:
+            return f"{ssh_match.group(1)}/{ssh_match.group(2)}"
+
+        return None
 
     def run_test(
         self,

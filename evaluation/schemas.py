@@ -23,7 +23,7 @@ class EvaluationRecord(BaseModel):
     observation_id: str  # worker_id + mission_id hash
     mission_id: str
     worker_id: str
-    description_preview: str  
+    description_preview: str
     anomaly_type: Optional[str] = None
 
     # Synthesis result

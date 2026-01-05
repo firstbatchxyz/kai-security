@@ -127,6 +127,8 @@ class VerifierProcess(BaseProcess[VerifierProcessInput, VerifierProcessOutput]):
             error_message=error_message,
             estimated_cost=agent.estimated_cost,
             total_tokens=agent.total_tokens,
+            agent_messages=agent.messages,
+            agent_model=agent.model,
         )
 
     def _project_root(self) -> Path:

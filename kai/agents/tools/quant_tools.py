@@ -16,24 +16,19 @@ from typing import Optional, Dict, Any
 from kai.agents.tools.tools import (
     dependency_graph_loc,
     dependency_graph_slice,
-    dependency_graph_paths,
     dependency_graph_neighbors,
     dependency_graph_resolve,
     dependency_graph_snippet,
     dependency_graph_callers,
     dependency_graph_callees,
-    dependency_graph_explain,
     dependency_graph_protocol_entrypoints,
     _get_current_agent,
+    write_and_compile,
+    register_exploit,
 )
 
 # Import shared test execution tools from state_tools
-from kai.agents.tools.state_tools import (
-    write_and_compile,
-    run_test,
-    patch_file,
-    register_exploit,
-)
+from kai.agents.tools.state_tools import run_test, patch_file
 
 
 def analyze_arithmetic(function_id: str) -> Dict[str, Any]:
@@ -485,13 +480,11 @@ __all__ = [
     # Graph analysis tools
     "dependency_graph_loc",
     "dependency_graph_slice",
-    "dependency_graph_paths",
     "dependency_graph_neighbors",
     "dependency_graph_resolve",
     "dependency_graph_snippet",
     "dependency_graph_callers",
     "dependency_graph_callees",
-    "dependency_graph_explain",
     "dependency_graph_protocol_entrypoints",
     # Test execution tools
     "write_and_compile",

@@ -10,6 +10,7 @@ from typing import Optional
 
 from kai.agents.base import BaseAgent
 from kai.agents.utils import AgentType
+from kai.agents import settings
 from kai.schemas import (
     AgentResponse,
     MasterContext,
@@ -70,13 +71,13 @@ class VerifierAgent(BaseAgent):
         max_tool_turns: Optional[int] = None,
         repo_path: Optional[str] = None,
         use_vllm: bool = False,
-        model: Optional[str] = None,
+        model: Optional[str] = settings.VERIFIER_DEFAULT_MODEL,
         use_openai: bool = False,
         execution_id: Optional[str] = None,
     ):
         # Initialize with minimal system prompt - will be replaced by set_toolcalling_prompt()
         super().__init__(
-            max_tool_turns=max_tool_turns or 16,  # Verifier needs fewer turns
+            max_tool_turns=max_tool_turns or settings.VERIFIER_MAX_TURNS,
             repo_path=repo_path,
             use_vllm=use_vllm,
             model=model,
