@@ -38,6 +38,7 @@ from .solidity import SolidityBuilder
 from .treesitter_base import TreeSitterBuilder
 from .python import PythonBuilder
 from .javascript import JavaScriptBuilder
+from .typescript import TypeScriptBuilder
 from .c import CBuilder
 from ..graph import DependencyGraph
 
@@ -47,6 +48,7 @@ __all__ = [
     "TreeSitterBuilder",
     "PythonBuilder",
     "JavaScriptBuilder",
+    "TypeScriptBuilder",
     "CBuilder",
     "build_from_slither",
     "get_builder",
@@ -63,6 +65,8 @@ def get_builder(language: str) -> BaseBuilder:
         "py": PythonBuilder,
         "javascript": JavaScriptBuilder,
         "js": JavaScriptBuilder,
+        "typescript": TypeScriptBuilder,
+        "ts": TypeScriptBuilder,
         "c": CBuilder,
     }
 

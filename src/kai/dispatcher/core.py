@@ -59,6 +59,7 @@ class DispatcherConfig:
     # Model settings for agents
     model: str = settings.MAIN_DEFAULT_MODEL
     verifier_model: str = settings.VERIFIER_DEFAULT_MODEL
+    fixer_model: str = settings.FIXER_DEFAULT_MODEL
     use_openai: bool = False
     # Rollout saving
     save_rollouts: bool = False
@@ -134,6 +135,12 @@ class Dispatcher:
         self.exploit_candidates: List[ExploitCandidate] = []
         self.verdicts: List[Verdict] = []
         self.fixes: List[Fix] = []
+
+        # Aggregated token/cost tracking across all agents
+        self.total_tokens: Dict[str, int] = {"prompt_tokens": 0, "completion_tokens": 0}
+        self.total_cost: float = 0.0
+        # Per-phase breakdown for detailed reporting
+        self.token_usage_by_phase: Dict[str, Dict[str, Any]] = {}
 
         self._workspace_manager = WorkspaceManager(
             workspace_dir=self.config.workspace_dir, logger=self.logger
@@ -271,6 +278,107 @@ class Dispatcher:
             self.logger.debug(f"Saved verifier rollout: {output_file}")
         except Exception as e:
             self.logger.warning(f"Failed to save verifier rollout {mission_id}: {e}")
+
+    def _aggregate_usage(
+        self,
+        prompt_tokens: int,
+        completion_tokens: int,
+        cost: float,
+        phase: str,
+        agent_type: str,
+    ) -> None:
+        """
+        Core method to aggregate token usage into dispatcher totals.
+
+        Args:
+            prompt_tokens: Number of prompt tokens
+            completion_tokens: Number of completion tokens
+            cost: Estimated cost in USD
+            phase: Phase name (e.g., "boot", "run_loop")
+            agent_type: Type of agent/process (e.g., "state", "verifier")
+        """
+        # Update dispatcher totals
+        self.total_tokens["prompt_tokens"] += prompt_tokens
+        self.total_tokens["completion_tokens"] += completion_tokens
+        self.total_cost += cost
+
+        # Track per-phase breakdown
+        if phase not in self.token_usage_by_phase:
+            self.token_usage_by_phase[phase] = {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "cost": 0.0,
+                "by_agent_type": {},
+            }
+
+        phase_data = self.token_usage_by_phase[phase]
+        phase_data["prompt_tokens"] += prompt_tokens
+        phase_data["completion_tokens"] += completion_tokens
+        phase_data["cost"] += cost
+
+        # Track by agent type within phase
+        if agent_type not in phase_data["by_agent_type"]:
+            phase_data["by_agent_type"][agent_type] = {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "cost": 0.0,
+                "count": 0,
+            }
+
+        agent_type_data = phase_data["by_agent_type"][agent_type]
+        agent_type_data["prompt_tokens"] += prompt_tokens
+        agent_type_data["completion_tokens"] += completion_tokens
+        agent_type_data["cost"] += cost
+        agent_type_data["count"] += 1
+
+    def _aggregate_agent_usage(
+        self,
+        agent: Any,
+        phase: str,
+        agent_type: str = "unknown",
+    ) -> None:
+        """
+        Aggregate token usage and cost from an agent into dispatcher totals.
+
+        Args:
+            agent: The agent with total_tokens and estimated_cost attributes
+            phase: Phase name (e.g., "boot", "run_loop")
+            agent_type: Type of agent (e.g., "state", "quant", "verifier")
+        """
+        agent_tokens = getattr(agent, "total_tokens", {})
+        self._aggregate_usage(
+            prompt_tokens=agent_tokens.get("prompt_tokens", 0),
+            completion_tokens=agent_tokens.get("completion_tokens", 0),
+            cost=getattr(agent, "estimated_cost", 0.0),
+            phase=phase,
+            agent_type=agent_type,
+        )
+
+    def _aggregate_process_usage(
+        self,
+        prompt_tokens: int,
+        completion_tokens: int,
+        cost: float,
+        phase: str,
+        agent_type: str = "process",
+    ) -> None:
+        """
+        Aggregate token usage from a process (not an agent) into dispatcher totals.
+
+        Args:
+            prompt_tokens: Number of prompt tokens
+            completion_tokens: Number of completion tokens
+            cost: Estimated cost in USD
+            phase: Phase name (e.g., "boot")
+            agent_type: Type of process (e.g., "profiler", "actor", "invariant")
+        """
+        self._aggregate_usage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            cost=cost,
+            phase=phase,
+            agent_type=agent_type,
+        )
 
     async def boot(
         self,
@@ -537,10 +645,14 @@ class Dispatcher:
         master_root = Path(self.master_context.root_path).resolve()
         analysis_root = master_root
 
-        # The golden master is intentionally marked read-only. Slither/CryticCompile may run
-        # To keep the master immutable while allowing compilation, build the graph in a
-        # writable workspace copy when the master root isn't writable.
-        if not os.access(str(master_root), os.W_OK):
+        # Tree-sitter builders (python, javascript, c) only read files - no workspace needed.
+        # Only Solidity (Slither) needs a writable workspace for compilation caches.
+        adapter = (self.master_context.adapter or "solidity").lower()
+        needs_writable_workspace = adapter == "solidity"
+
+        if needs_writable_workspace and not os.access(str(master_root), os.W_OK):
+            # Slither/CryticCompile needs write access for compilation caches.
+            # Provision a writable workspace copy when master is read-only.
             try:
                 ws_id = f"analysis_{uuid.uuid4().hex[:8]}"
                 ws_path = self._workspace_manager.provision(
@@ -820,6 +932,12 @@ class Dispatcher:
             # Save rollout before closing agent
             if agent is not None:
                 self._save_rollout(agent, "missions", mission.mission_id)
+                # Aggregate token usage from this agent
+                self._aggregate_agent_usage(
+                    agent=agent,
+                    phase="run_loop",
+                    agent_type=mission.agent_type.value if mission.agent_type else "unknown",
+                )
                 try:
                     await agent.close()
                 except Exception:
@@ -921,6 +1039,15 @@ class Dispatcher:
                     output.total_tokens,
                     output.estimated_cost,
                 )
+
+            # Aggregate verifier token usage
+            self._aggregate_process_usage(
+                prompt_tokens=output.total_tokens.get("prompt_tokens", 0),
+                completion_tokens=output.total_tokens.get("completion_tokens", 0),
+                cost=output.estimated_cost,
+                phase="run_loop",
+                agent_type="verifier",
+            )
 
             if output.success and output.verdict:
                 verdict = output.verdict
@@ -1040,7 +1167,7 @@ class Dispatcher:
                 repo_path=workspace_path,
                 dependency_graph=self.dependency_graph,
                 max_tool_turns=settings.DEFAULT_MAX_TURNS,
-                model=self.config.model,
+                model=self.config.fixer_model,
                 use_openai=self.config.use_openai,
             )
 

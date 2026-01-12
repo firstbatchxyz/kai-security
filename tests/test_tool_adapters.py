@@ -1,11 +1,10 @@
 """
-Tests for tool adapters (Python, JavaScript, C).
+Tests for tool adapters (Python, JavaScript, TypeScript, C).
 
 Tests the ToolAdapter interface implementations for each language.
 """
 
 from pathlib import Path
-from typing import Optional
 
 import pytest  # type: ignore[import-not-found]
 
@@ -14,6 +13,7 @@ from kai.utils.tool_adapters import (
     get_supported_frameworks,
     PythonToolAdapter,
     JavaScriptToolAdapter,
+    TypeScriptToolAdapter,
     CToolAdapter,
     FoundryToolAdapter,
 )
@@ -57,6 +57,16 @@ class TestToolAdapterRegistry:
         assert isinstance(adapter_js, JavaScriptToolAdapter)
         assert isinstance(adapter_node, JavaScriptToolAdapter)
 
+    def test_get_adapter_typescript(self):
+        """Should return TypeScriptToolAdapter for typescript."""
+        adapter = get_tool_adapter("typescript")
+        assert isinstance(adapter, TypeScriptToolAdapter)
+
+    def test_get_adapter_typescript_alias(self):
+        """Should return TypeScriptToolAdapter for ts alias."""
+        adapter = get_tool_adapter("ts")
+        assert isinstance(adapter, TypeScriptToolAdapter)
+
     def test_get_adapter_c(self):
         """Should return CToolAdapter for c."""
         adapter = get_tool_adapter("c")
@@ -77,7 +87,10 @@ class TestPythonToolAdapter:
 
     @pytest.fixture
     def python_project(self, tmp_path: Path):
-        """Create a minimal Python project."""
+        """Create a minimal Python project with venv."""
+        import shutil
+        import subprocess
+
         # Create pyproject.toml
         (tmp_path / "pyproject.toml").write_text("""
 [project]
@@ -97,6 +110,15 @@ def test_hello():
     from app import hello
     assert hello() == "Hello, World!"
 """)
+        # Create venv using uv (required for compile/test)
+        uv_bin = shutil.which("uv")
+        if uv_bin:
+            subprocess.run(
+                [uv_bin, "venv", str(tmp_path / ".venv")],
+                cwd=str(tmp_path),
+                capture_output=True,
+                timeout=60,
+            )
         return tmp_path
 
     def test_framework_name(self, adapter: PythonToolAdapter):
@@ -129,15 +151,21 @@ def test_hello():
     ):
         """Compile should perform syntax check."""
         result = adapter.compile(python_project)
-        # Should succeed for valid Python if uv/Python is available
-        if "Neither uv nor Python found" in str(result.errors):
-            pytest.skip("Neither uv nor Python found")
+        # Skip if venv wasn't created (uv not available)
+        if "workspace not properly provisioned" in str(result.errors):
+            pytest.skip("uv not available to create venv")
         assert result.success is True
 
-    def test_compile_syntax_error(self, adapter: PythonToolAdapter, tmp_path: Path):
+    def test_compile_syntax_error(
+        self, adapter: PythonToolAdapter, python_project: Path
+    ):
         """Compile should fail for invalid Python syntax."""
-        (tmp_path / "bad.py").write_text("def foo( return")
-        result = adapter.compile(tmp_path)
+        # Uses python_project to get a workspace with venv (required for compile)
+        (python_project / "bad.py").write_text("def foo( return")
+        result = adapter.compile(python_project)
+        # Skip if venv wasn't created (uv not available)
+        if "workspace not properly provisioned" in str(result.errors):
+            pytest.skip("uv not available to create venv")
         # Should fail for syntax error
         assert result.success is False
 
@@ -220,6 +248,82 @@ module.exports = { hello };
         assert manager == "pnpm"
 
 
+class TestTypeScriptToolAdapter:
+    """Tests for TypeScriptToolAdapter."""
+
+    @pytest.fixture
+    def adapter(self):
+        return TypeScriptToolAdapter()
+
+    @pytest.fixture
+    def ts_project(self, tmp_path: Path):
+        """Create a minimal TypeScript project."""
+        (tmp_path / "package.json").write_text("""{
+  "name": "test-project",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "jest"
+  }
+}""")
+        (tmp_path / "tsconfig.json").write_text("""{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "strict": true
+  }
+}""")
+        (tmp_path / "index.ts").write_text("""
+export function hello(): string {
+    return "Hello, World!";
+}
+""")
+        return tmp_path
+
+    def test_framework_name(self, adapter: TypeScriptToolAdapter):
+        """Should return typescript as framework name."""
+        assert adapter.framework_name == "typescript"
+
+    def test_language(self, adapter: TypeScriptToolAdapter):
+        """Should return typescript as language."""
+        assert adapter.language == "typescript"
+
+    def test_get_test_file_extension(self, adapter: TypeScriptToolAdapter):
+        """Should return .test.ts extension."""
+        assert adapter.get_test_file_extension() == ".test.ts"
+
+    def test_get_source_file_extension(self, adapter: TypeScriptToolAdapter):
+        """Should return .ts extension."""
+        assert adapter.get_source_file_extension() == ".ts"
+
+    def test_normalize_test_path(self, adapter: TypeScriptToolAdapter, tmp_path: Path):
+        """Should normalize test paths correctly."""
+        # With .test.ts extension
+        result = adapter.normalize_test_path("foo.test.ts", tmp_path)
+        assert ".test.ts" in str(result) or ".ts" in str(result)
+
+        # Without extension (should add .test.ts)
+        result = adapter.normalize_test_path("foo", tmp_path)
+        assert result.suffix == ".ts"
+
+    def test_get_poc_guidance(self, adapter: TypeScriptToolAdapter):
+        """Should return TypeScript-specific PoC guidance."""
+        guidance = adapter.get_poc_guidance()
+        assert "typescript" in guidance.lower() or "ts" in guidance.lower()
+        assert len(guidance) > 0
+
+    def test_extends_javascript_adapter(self, adapter: TypeScriptToolAdapter):
+        """Should be a subclass of JavaScriptToolAdapter."""
+        assert isinstance(adapter, JavaScriptToolAdapter)
+
+    def test_inherits_package_manager_detection(
+        self, adapter: TypeScriptToolAdapter, tmp_path: Path
+    ):
+        """Should inherit package manager detection from JavaScript adapter."""
+        (tmp_path / "yarn.lock").write_text("")
+        manager = adapter._detect_package_manager(tmp_path)
+        assert manager == "yarn"
+
+
 class TestCToolAdapter:
     """Tests for CToolAdapter."""
 
@@ -300,7 +404,7 @@ class TestToolAdapterPoCGuidance:
 
     def test_all_adapters_have_poc_guidance(self):
         """All adapters should provide non-empty PoC guidance."""
-        for framework in ["foundry", "python", "javascript", "c", "cargo", "cmake"]:
+        for framework in ["foundry", "python", "javascript", "typescript", "c", "cargo", "cmake"]:
             adapter = get_tool_adapter(framework)
             guidance = adapter.get_poc_guidance()
             assert isinstance(guidance, str)
@@ -310,6 +414,7 @@ class TestToolAdapterPoCGuidance:
         """PoC guidance should contain framework-specific information."""
         python_adapter = get_tool_adapter("python")
         js_adapter = get_tool_adapter("javascript")
+        ts_adapter = get_tool_adapter("typescript")
         c_adapter = get_tool_adapter("c")
         foundry_adapter = get_tool_adapter("foundry")
         cargo_adapter = get_tool_adapter("cargo")
@@ -330,6 +435,15 @@ class TestToolAdapterPoCGuidance:
             or "node" in js_guidance
             or "jest" in js_guidance
             or "test" in js_guidance
+        )
+
+        # TypeScript guidance should mention typescript or test framework
+        ts_guidance = ts_adapter.get_poc_guidance().lower()
+        assert (
+            "typescript" in ts_guidance
+            or "ts" in ts_guidance
+            or "jest" in ts_guidance
+            or "test" in ts_guidance
         )
 
         # C guidance should mention compilation or testing

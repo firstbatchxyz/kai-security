@@ -7,7 +7,7 @@ from kai.agents.settings import MAIN_DEFAULT_MODEL, SETUP_DEFAULT_MODEL, MAX_TOO
 from kai.utils.ids import generate_id
 
 # Adapter type literal for structured output validation
-AdapterType = Literal["solidity", "python", "javascript", "c"]
+AdapterType = Literal["solidity", "python", "javascript", "typescript", "c"]
 
 
 class Role(str, Enum):
@@ -29,8 +29,11 @@ class ChatMessage(BaseModel):
 class Language(str, Enum):
     SOLIDITY = "solidity"
     JAVASCRIPT = "javascript"
+    TYPESCRIPT = "typescript"
+    PYTHON = "python"
     RUST = "rust"
     CPP = "cpp"
+    C = "c"
 
 
 class Framework(str, Enum):

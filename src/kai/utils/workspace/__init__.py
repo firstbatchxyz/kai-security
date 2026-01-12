@@ -11,6 +11,7 @@ from kai.utils.workspace.cargo import CargoWorkspaceAdapter
 from kai.utils.workspace.cmake import CMakeWorkspaceAdapter
 from kai.utils.workspace.python import PythonWorkspaceAdapter
 from kai.utils.workspace.javascript import JavaScriptWorkspaceAdapter
+from kai.utils.workspace.typescript import TypeScriptWorkspaceAdapter
 from kai.utils.workspace.c import CWorkspaceAdapter
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
     "CMakeWorkspaceAdapter",
     "PythonWorkspaceAdapter",
     "JavaScriptWorkspaceAdapter",
+    "TypeScriptWorkspaceAdapter",
     "CWorkspaceAdapter",
     "get_workspace_adapter",
     "get_supported_frameworks",
@@ -37,6 +39,8 @@ _ADAPTERS = {
     "javascript": JavaScriptWorkspaceAdapter,
     "js": JavaScriptWorkspaceAdapter,  # Alias
     "node": JavaScriptWorkspaceAdapter,  # Alias
+    "typescript": TypeScriptWorkspaceAdapter,
+    "ts": TypeScriptWorkspaceAdapter,  # Alias
     "c": CWorkspaceAdapter,
 }
 

@@ -16,6 +16,7 @@ from kai.schemas import (
     Verdict,
     VerifierProcessInput,
     VerifierProcessOutput,
+    WorkspacePreset,
 )
 
 
@@ -47,10 +48,14 @@ class VerifierProcess(BaseProcess[VerifierProcessInput, VerifierProcessOutput]):
             logger=self.logger,
         )
         workspace_id = f"verify_{candidate.mission_id}"
+        # Use CLEAN preset to get a writable workspace copy
+        # LIGHTWEIGHT fails for Python because editable installs need to write
+        # .egg-info to the source directory, which is read-only in master
         workspace_path = workspace_manager.provision(
             workspace_id=workspace_id,
             master_path=repo_path,
             master_context=ctx,
+            preset=WorkspacePreset.CLEAN,
         )
 
         # Create VerifierAgent

@@ -80,6 +80,26 @@ class PythonToolAdapter(ToolAdapter):
         """Check if the binary is uv."""
         return "uv" in Path(binary).name
 
+    def _get_venv_python(self, workspace_path: Path) -> Optional[Path]:
+        """
+        Get the venv python binary path.
+
+        Args:
+            workspace_path: Path to the workspace directory
+
+        Returns:
+            Path to the venv python binary, or None if not found
+        """
+        # Unix path
+        venv_python = workspace_path / ".venv" / "bin" / "python"
+        if venv_python.exists():
+            return venv_python
+        # Windows path
+        venv_python = workspace_path / ".venv" / "Scripts" / "python.exe"
+        if venv_python.exists():
+            return venv_python
+        return None
+
     def compile(
         self,
         workspace_path: Path,
@@ -88,7 +108,8 @@ class PythonToolAdapter(ToolAdapter):
         """
         Check Python syntax using py_compile on all .py files.
 
-        Uses uv if available, otherwise falls back to direct Python.
+        Uses the workspace venv python directly to avoid uv project sync
+        (which triggers editable installs and setuptools-scm issues).
 
         Args:
             workspace_path: Path to the workspace directory
@@ -97,16 +118,15 @@ class PythonToolAdapter(ToolAdapter):
         Returns:
             CompileResult with success status and parsed errors
         """
-        try:
-            binary = self.find_binary(workspace_path)
-        except FileNotFoundError as e:
+        # Use workspace venv python directly - avoids uv project sync
+        # which would trigger editable install and setuptools-scm
+        venv_python = self._get_venv_python(workspace_path)
+        if venv_python is None:
             return CompileResult(
                 success=False,
-                errors=[str(e)],
+                errors=[f"No venv python found at {workspace_path}/.venv - workspace not properly provisioned"],
                 raw_output="",
             )
-
-        is_uv = self._is_uv(binary)
 
         # Find all .py files
         py_files = list(workspace_path.rglob("*.py"))
@@ -137,11 +157,7 @@ class PythonToolAdapter(ToolAdapter):
 
         for py_file in py_files[:50]:  # Limit to first 50 files
             try:
-                # Build command based on whether we're using uv
-                if is_uv:
-                    cmd = [binary, "run", "python", "-m", "py_compile", str(py_file)]
-                else:
-                    cmd = [binary, "-m", "py_compile", str(py_file)]
+                cmd = [str(venv_python), "-m", "py_compile", str(py_file)]
 
                 result = subprocess.run(
                     cmd,
@@ -413,10 +429,10 @@ class PythonToolAdapter(ToolAdapter):
         framework_kwargs: Optional[Dict[str, Any]] = None,
     ) -> TestResult:
         """
-        Run Python tests using pytest via uv.
+        Run Python tests using pytest.
 
-        Uses `uv run --with pytest pytest` when uv is available,
-        otherwise falls back to direct pytest execution.
+        Uses the workspace venv python directly to avoid uv project sync
+        (which triggers editable installs and setuptools-scm issues).
 
         Args:
             workspace_path: Path to the workspace directory
@@ -430,34 +446,37 @@ class PythonToolAdapter(ToolAdapter):
         Returns:
             TestResult with parsed test outcomes
         """
-        try:
-            binary = self.find_binary(workspace_path)
-        except FileNotFoundError as e:
-            return TestResult(success=False, error=str(e))
+        # Use workspace venv python directly - avoids uv project sync
+        venv_python = self._get_venv_python(workspace_path)
+        if venv_python is None:
+            return TestResult(
+                success=False,
+                error=f"No venv python found at {workspace_path}/.venv - workspace not properly provisioned",
+            )
 
-        is_uv = self._is_uv(binary)
+        # Use venv python with pytest module
+        cmd = [str(venv_python), "-m", "pytest"]
 
-        # Build command based on whether we're using uv
-        if is_uv:
-            # Use uv run --with pytest pytest
-            cmd = [binary, "run", "--with", "pytest", "pytest"]
-        else:
-            cmd = [binary, "-m", "pytest"]
+        # Framework-specific kwargs
+        fw = framework_kwargs or {}
+
+        # Add match_path first - this restricts pytest to only collect from this path
+        # This prevents pytest from trying to import other test files in the workspace
+        if fw.get("match_path"):
+            cmd.append(fw["match_path"])
+        elif match_contract:
+            # Treat as file path pattern
+            cmd.append(match_contract)
 
         # Add match patterns
         if match_test:
             cmd.extend(["-k", match_test])
 
-        if match_contract:
-            # Treat as file path pattern
-            cmd.append(match_contract)
-
         # Add verbosity
         if verbosity > 0:
             cmd.append("-" + "v" * min(verbosity, 3))
 
-        # Framework-specific kwargs
-        fw = framework_kwargs or {}
+        # More framework kwargs
         if fw.get("markers"):
             cmd.extend(["-m", fw["markers"]])
         if fw.get("maxfail"):
@@ -484,6 +503,11 @@ class PythonToolAdapter(ToolAdapter):
             # Parse pytest output
             parsed = self._parse_test_output(output)
 
+            # Check if parsing detected an import/module error
+            error_msg = parsed.get("error")
+            if error_msg:
+                success = False
+
             return TestResult(
                 success=success,
                 tests_passed=parsed["tests_passed"],
@@ -492,6 +516,7 @@ class PythonToolAdapter(ToolAdapter):
                 reverts=parsed["reverts"],
                 parsed_results=parsed["parsed_results"],
                 raw_output=output[:5000] if len(output) > 5000 else output,
+                error=error_msg,
             )
 
         except subprocess.TimeoutExpired:
@@ -639,6 +664,41 @@ Write Python test files in tests/poc/.
 
     def _parse_test_output(self, output: str) -> dict:
         """Parse pytest output to extract results."""
+        import re
+
+        # Check for ModuleNotFoundError - common when deps weren't installed
+        module_error_match = re.search(
+            r"ModuleNotFoundError: No module named ['\"]([^'\"]+)['\"]", output
+        )
+        if module_error_match:
+            missing_module = module_error_match.group(1)
+            return {
+                "tests_passed": 0,
+                "tests_failed": 1,
+                "assertion_failures": [],
+                "reverts": [],
+                "parsed_results": {},
+                "error": f"Missing dependency: '{missing_module}'. "
+                f"The workspace may not have installed all required packages. "
+                f"Check if the project's dependencies were installed correctly.",
+            }
+
+        # Check for ImportError as well (related issue)
+        import_error_match = re.search(
+            r"ImportError: cannot import name ['\"]([^'\"]+)['\"]", output
+        )
+        if import_error_match:
+            missing_import = import_error_match.group(1)
+            return {
+                "tests_passed": 0,
+                "tests_failed": 1,
+                "assertion_failures": [],
+                "reverts": [],
+                "parsed_results": {},
+                "error": f"Import error: cannot import '{missing_import}'. "
+                f"This may indicate missing or incompatible dependencies.",
+            }
+
         tests_passed = 0
         tests_failed = 0
         assertion_failures: List[str] = []

@@ -197,6 +197,83 @@ class CargoToolAdapter(ToolAdapter):
             raw_output=combined[:8000] if len(combined) > 8000 else combined,
         )
 
+    def run_standalone_script(
+        self,
+        workspace_path: Path,
+        script_path: Path,
+        timeout: int = 300,
+        additional_args: Optional[str] = None,
+    ) -> TestResult:
+        """
+        Run a standalone Rust binary or script.
+
+        Args:
+            workspace_path: Path to the workspace directory
+            script_path: Path to the script file
+            timeout: Maximum execution time in seconds
+            additional_args: Additional CLI arguments
+
+        Returns:
+            TestResult with execution status
+        """
+        import os as os_module
+
+        try:
+            file_ext = script_path.suffix.lower()
+
+            if file_ext == ".rs":
+                rustc = shutil.which("rustc")
+                if not rustc:
+                    return TestResult(success=False, error="rustc not found in PATH", raw_output="")
+
+                output_binary = workspace_path / script_path.stem
+                compile_cmd = [rustc, str(script_path), "-o", str(output_binary)]
+
+                compile_result = subprocess.run(
+                    compile_cmd,
+                    cwd=str(workspace_path),
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout // 2,
+                )
+
+                if compile_result.returncode != 0:
+                    return TestResult(
+                        success=False,
+                        error=f"Compilation failed: {compile_result.stderr}",
+                        raw_output=compile_result.stdout + compile_result.stderr,
+                    )
+
+                script_path = output_binary
+
+            cmd = [str(script_path)]
+            if additional_args:
+                cmd.extend(shlex.split(additional_args))
+
+            result = subprocess.run(
+                cmd,
+                cwd=str(workspace_path),
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env={**os_module.environ},
+            )
+
+            output = result.stdout + result.stderr
+
+            return TestResult(
+                success=result.returncode == 0,
+                tests_passed=1 if result.returncode == 0 else 0,
+                tests_failed=0 if result.returncode == 0 else 1,
+                raw_output=output[:5000] if len(output) > 5000 else output,
+                error=None if result.returncode == 0 else f"Binary exited with code {result.returncode}",
+            )
+
+        except subprocess.TimeoutExpired:
+            return TestResult(success=False, error=f"Execution timed out after {timeout}s", raw_output="")
+        except Exception as e:
+            return TestResult(success=False, error=f"Failed to run script: {str(e)}", raw_output=str(e))
+
     def get_test_file_extension(self) -> str:
         return ".rs"
 

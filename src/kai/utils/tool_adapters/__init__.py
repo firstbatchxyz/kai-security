@@ -18,6 +18,7 @@ from kai.utils.tool_adapters.cargo import CargoToolAdapter
 from kai.utils.tool_adapters.cmake import CMakeToolAdapter
 from kai.utils.tool_adapters.python import PythonToolAdapter
 from kai.utils.tool_adapters.javascript import JavaScriptToolAdapter
+from kai.utils.tool_adapters.typescript import TypeScriptToolAdapter
 from kai.utils.tool_adapters.c import CToolAdapter
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     "CMakeToolAdapter",
     "PythonToolAdapter",
     "JavaScriptToolAdapter",
+    "TypeScriptToolAdapter",
     "CToolAdapter",
     "get_tool_adapter",
     "get_supported_frameworks",
@@ -47,6 +49,8 @@ _ADAPTERS = {
     "javascript": JavaScriptToolAdapter,
     "js": JavaScriptToolAdapter,  # Alias
     "node": JavaScriptToolAdapter,  # Alias
+    "typescript": TypeScriptToolAdapter,
+    "ts": TypeScriptToolAdapter,  # Alias
     "c": CToolAdapter,
 }
 

@@ -179,6 +179,10 @@ def generate_openai_tools(tools_module: str, adapter=None) -> list[dict]:
         if py_type is None or py_type is type(None):
             return {"type": "null"}
 
+        # Handle Any type - allows any value
+        if py_type is typing.Any:
+            return {}
+
         # Handle Optional/Union types
         origin = get_origin(py_type)
         if origin is Union:
@@ -199,7 +203,13 @@ def generate_openai_tools(tools_module: str, adapter=None) -> list[dict]:
 
         # Handle Dict types
         if origin is dict:
-            return {"type": "object"}
+            args = get_args(py_type)
+            if args and len(args) == 2:
+                value_schema = python_type_to_json_schema(args[1])
+                if not value_schema:
+                    return {"type": "object", "additionalProperties": True}
+                return {"type": "object", "additionalProperties": value_schema}
+            return {"type": "object", "additionalProperties": True}
 
         # Handle Literal types
         if origin is typing.Literal:
@@ -316,9 +326,8 @@ def generate_openai_tools(tools_module: str, adapter=None) -> list[dict]:
 
             properties[param_name] = param_schema
 
-            # Check if required (no default value)
-            if param.default is param.empty:
-                required.append(param_name)
+            # Add all parameters to required for OpenAI strict mode compliance
+            required.append(param_name)
 
         # Build tool definition
         tool = {
@@ -326,6 +335,7 @@ def generate_openai_tools(tools_module: str, adapter=None) -> list[dict]:
             "function": {
                 "name": name,
                 "description": description or f"Function {name}",
+                "strict": False,
                 "parameters": {
                     "type": "object",
                     "properties": properties,

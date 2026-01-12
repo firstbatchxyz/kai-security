@@ -12,6 +12,7 @@ SETUP_DEFAULT_MODEL = "google/gemini-3-flash-preview"
 MAIN_DEFAULT_MODEL = "openai/gpt-5.2"
 GAMIFIED_DEFAULT_MODEL = "anthropic/claude-opus-4.5"
 VERIFIER_DEFAULT_MODEL = "anthropic/claude-opus-4.5"
+FIXER_DEFAULT_MODEL = "anthropic/claude-opus-4.5"
 
 # Agent turn limits (centralized)
 DEFAULT_MAX_TURNS = (
@@ -25,6 +26,11 @@ INVARIANT_SYNTH_MAX_TURNS = 8  # Invariant synthesizer per observation
 
 # Legacy alias (deprecated - use DEFAULT_MAX_TURNS)
 MAX_TOOL_TURNS = DEFAULT_MAX_TURNS
+
+# Output truncation limits (characters)
+MAX_RAW_OUTPUT_LENGTH = 5000  # For test results, compile output, etc.
+MAX_ERROR_SNIPPET_LENGTH = 200  # For error messages in logs
+MAX_COMBINED_OUTPUT_LENGTH = 8000  # For combined stdout+stderr
 
 # Dispatcher settings
 MAX_CONCURRENT_AGENTS = 2

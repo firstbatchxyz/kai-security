@@ -31,6 +31,7 @@ Kai uses a three-layer adapter pattern to support multiple smart contract framew
 | **CMake** | C/C++ | ✅ | ✅ | ❌ | ❌ |
 | **Python** | Python | ✅ (uv) | ✅ | ✅ | ✅ (tree-sitter) |
 | **JavaScript** | JavaScript | ✅ | ✅ | ✅ | ✅ (tree-sitter) |
+| **TypeScript** | TypeScript | ✅ | ✅ | ✅ | ✅ (tree-sitter) |
 | **C** | C | ✅ | ✅ | ✅ | ✅ (tree-sitter) |
 
 ---
@@ -70,6 +71,7 @@ class ToolAdapter(ABC):
 | `FoundryToolAdapter` | `foundry.py` | `forge test` | Solidity, fuzz seeds, gas tracking |
 | `PythonToolAdapter` | `python.py` | `uv run pytest` | uv integration, venv fallback |
 | `JavaScriptToolAdapter` | `javascript.py` | `npm/yarn/pnpm test` | Package manager detection |
+| `TypeScriptToolAdapter` | `typescript.py` | `npm/yarn/pnpm test` | Extends JS adapter, .ts extensions |
 | `CToolAdapter` | `c.py` | `make test` | CMake/Make/Meson detection |
 | `CargoToolAdapter` | `cargo.py` | `cargo test` | Rust, feature flags |
 | `CMakeToolAdapter` | `cmake.py` | `ctest` | C/C++, build dir management |
@@ -182,6 +184,7 @@ class WorkspaceAdapter(ABC):
 | `FoundryWorkspaceAdapter` | Foundry | `out/`, `cache/`, `lib/` |
 | `PythonWorkspaceAdapter` | Python | `.venv/`, `__pycache__/`, `.pytest_cache/` |
 | `JavaScriptWorkspaceAdapter` | JavaScript | `node_modules/`, `dist/`, `.cache/` |
+| `TypeScriptWorkspaceAdapter` | TypeScript | `node_modules/`, `dist/`, `.cache/` |
 | `CWorkspaceAdapter` | C | `build/`, `cmake-build-*/`, `out/` |
 | `CargoWorkspaceAdapter` | Cargo | `target/` |
 | `CMakeWorkspaceAdapter` | CMake | `build/`, `cmake-build-*` |
@@ -229,6 +232,7 @@ class DomainAdapter(ABC):
 | `SolidityAdapter` | Solidity | `lib/`, `node_modules/`, `forge-std/` | `public`/`external` functions |
 | `PythonAdapter` | Python | `site-packages/`, `venv/` | Public functions (no `_` prefix) |
 | `JavaScriptAdapter` | JavaScript | `node_modules/` | `export` functions |
+| `TypeScriptAdapter` | TypeScript | `node_modules/`, `@types/`, `.d.ts` | `export` functions |
 | `CAdapter` | C | `/usr/include/`, `/usr/local/include/` | Non-static functions |
 
 ### C Adapter Special Features
@@ -275,7 +279,8 @@ class TreeSitterBuilder(BaseBuilder):
 |---------|----------|------------|----------|
 | `SolidityBuilder` | Solidity | `.sol` | Contracts, functions, state vars (via Slither) |
 | `PythonBuilder` | Python | `.py` | Classes, functions, methods, globals |
-| `JavaScriptBuilder` | JavaScript | `.js`, `.ts` | Classes, functions, arrow functions |
+| `JavaScriptBuilder` | JavaScript | `.js`, `.mjs`, `.cjs` | Classes, functions, arrow functions |
+| `TypeScriptBuilder` | TypeScript | `.ts`, `.tsx`, `.mts`, `.cts` | Classes, functions, arrow functions |
 | `CBuilder` | C | `.c`, `.h` | Structs, enums, functions, globals |
 
 ### NodeKind Mapping

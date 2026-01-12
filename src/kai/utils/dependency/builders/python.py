@@ -254,7 +254,9 @@ class PythonBuilder(TreeSitterBuilder):
         # Add ACCEPTS edges for decorators
         if decorators:
             for dec in decorators:
-                edges.append((func_id, dec, EdgeKind.ACCEPTS))
+                # Construct full decorator ID to match node created in _extract_decorated
+                dec_id = f"{file_id}:{dec}"
+                edges.append((func_id, dec_id, EdgeKind.ACCEPTS))
 
         # Extract function calls within body
         body = self._find_child_by_type(node, "block")

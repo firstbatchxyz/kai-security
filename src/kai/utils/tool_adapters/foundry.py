@@ -358,6 +358,61 @@ class FoundryToolAdapter(ToolAdapter):
         except Exception as e:
             return TestResult(success=False, error=str(e))
 
+    def run_standalone_script(
+        self,
+        workspace_path: Path,
+        script_path: Path,
+        timeout: int = 300,
+        additional_args: Optional[str] = None,
+    ) -> TestResult:
+        """
+        Run a standalone Solidity script using forge script.
+
+        Args:
+            workspace_path: Path to the workspace directory
+            script_path: Path to the script file
+            timeout: Maximum execution time in seconds
+            additional_args: Additional CLI arguments
+
+        Returns:
+            TestResult with execution status
+        """
+        import os as os_module
+
+        try:
+            forge_bin = self.find_binary()
+        except FileNotFoundError as e:
+            return TestResult(success=False, error=str(e), raw_output="")
+
+        try:
+            cmd = [forge_bin, "script", str(script_path)]
+            if additional_args:
+                cmd.extend(shlex.split(additional_args))
+
+            result = subprocess.run(
+                cmd,
+                cwd=str(workspace_path),
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env={**os_module.environ},
+            )
+
+            output = result.stdout + result.stderr
+
+            return TestResult(
+                success=result.returncode == 0,
+                tests_passed=1 if result.returncode == 0 else 0,
+                tests_failed=0 if result.returncode == 0 else 1,
+                raw_output=output[:5000] if len(output) > 5000 else output,
+                error=None if result.returncode == 0 else f"Script exited with code {result.returncode}",
+            )
+
+        except subprocess.TimeoutExpired:
+            return TestResult(success=False, error=f"Script timed out after {timeout}s", raw_output="")
+        except Exception as e:
+            return TestResult(success=False, error=f"Failed to run script: {str(e)}", raw_output=str(e))
+
     def get_test_file_extension(self) -> str:
         """Return Foundry test file extension."""
         return ".t.sol"

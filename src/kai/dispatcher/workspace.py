@@ -60,6 +60,7 @@ class WorkspaceManager:
                 adapter_map = {
                     "solidity": "foundry",
                     "javascript": "javascript",
+                    "typescript": "typescript",
                     "python": "python",
                     "c": "c",
                 }

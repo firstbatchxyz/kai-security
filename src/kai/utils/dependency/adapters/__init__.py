@@ -31,16 +31,19 @@ from .base import DomainAdapter
 from .solidity import SolidityAdapter
 from .python import PythonAdapter
 from .javascript import JavaScriptAdapter
+from .typescript import TypeScriptAdapter
 from .c import CAdapter
 
 # Literal type for structured output validation
-AdapterType = Literal["solidity", "python", "javascript", "c"]
+AdapterType = Literal["solidity", "python", "javascript", "typescript", "c"]
 
 # Registry mapping adapter names to classes
 ADAPTER_REGISTRY: dict[str, type[DomainAdapter]] = {
     "solidity": SolidityAdapter,
     "python": PythonAdapter,
     "javascript": JavaScriptAdapter,
+    "typescript": TypeScriptAdapter,
+    "ts": TypeScriptAdapter,  # Alias
     "c": CAdapter,
 }
 
@@ -76,5 +79,6 @@ __all__ = [
     "SolidityAdapter",
     "PythonAdapter",
     "JavaScriptAdapter",
+    "TypeScriptAdapter",
     "CAdapter",
 ]

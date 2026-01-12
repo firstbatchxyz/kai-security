@@ -11,17 +11,41 @@ import json
 import subprocess
 import shlex
 import uuid
+from dataclasses import dataclass
 from typing import Optional, Union, Dict, Any, List, Literal
 
 from kai.agents.utils import load_gitignore_spec, should_ignore_path
 from kai.utils.dependency import GraphQueryEngine
-from kai.utils.dependency.adapters import SolidityAdapter
+from kai.utils.dependency.adapters import get_adapter
 from kai.utils.dependency.analysis import (
     FileSourceLoader,
     NodeRef,
     ContextSlice,
     EvidencePack,
 )
+
+
+@dataclass
+class HttpResult:
+    """Result from an HTTP request."""
+
+    status_code: int
+    body: str
+    headers: str
+    success: bool
+    error: Optional[str]
+    curl_command: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "status_code": self.status_code,
+            "body": self.body,
+            "headers": self.headers,
+            "success": self.success,
+            "error": self.error,
+            "curl_command": self.curl_command,
+        }
+
 
 # Context variable for current agent (async-safe)
 _current_agent_var: contextvars.ContextVar = contextvars.ContextVar(
@@ -112,7 +136,16 @@ def _get_query_engine() -> Optional[GraphQueryEngine]:
         or getattr(agent, "working_dir", None)
         or os.getcwd()
     )
-    adapter = SolidityAdapter()
+
+    # Get the correct adapter from master_context
+    master_context = getattr(agent, "master_context", None)
+    if master_context is None:
+        raise ValueError("Cannot build GraphQueryEngine: agent has no master_context")
+    adapter_name = getattr(master_context, "adapter", None)
+    if adapter_name is None:
+        raise ValueError("Cannot build GraphQueryEngine: master_context.adapter is not set")
+    adapter = get_adapter(adapter_name)
+
     source_loader = FileSourceLoader(base_path)
     return GraphQueryEngine(graph=graph, adapter=adapter, source_loader=source_loader)
 
@@ -1415,8 +1448,8 @@ def _get_agent_framework() -> str:
     """
     Get the tool framework from the current agent context.
 
-    Checks master_context.adapter field first (preferred), then master_context.frameworks
-    for supported tool frameworks (foundry, hardhat, python, javascript, c, etc.),
+    Checks master_context.adapter first (language-level adapter like "javascript", "python"),
+    then master_context.frameworks for tool frameworks (foundry, hardhat, etc.),
     then falls back to agent.framework attribute if set.
 
     Returns:
@@ -1428,27 +1461,26 @@ def _get_agent_framework() -> str:
     if agent is None:
         return "foundry"
 
-    # Check master_context.adapter field first (preferred)
     master_context = getattr(agent, "master_context", None)
     if master_context:
+        supported = set(get_supported_frameworks())
+
+        # First check the adapter field (language-level tool adapter)
         adapter = getattr(master_context, "adapter", None)
         if adapter:
-            return adapter.lower()
+            adapter_lower = adapter.lower()
+            if adapter_lower in supported:
+                return adapter_lower
 
-        # Check master_context.frameworks for supported tool framework
+        # Then check frameworks for tool framework matches
         frameworks = getattr(master_context, "frameworks", None) or []
-        supported = set(get_supported_frameworks())
         for fw in frameworks:
             fw_lower = fw.lower()
             if fw_lower in supported:
                 return fw_lower
 
-    # Try framework attribute directly on agent
-    framework = getattr(agent, "framework", None)
-    if framework:
-        return framework.lower()
-
-    return "foundry"
+    # Fall back to agent.framework
+    return getattr(agent, "framework", "foundry")
 
 
 def _get_adapter():
@@ -1698,6 +1730,272 @@ ADAPTER_DESCRIBED_TOOLS = {
     "patch_file",
     "register_exploit",
 }
+
+
+def http_request(
+    url: str,
+    method: str = "GET",
+    headers: Optional[List[str]] = None,
+    data: Optional[str] = None,
+    json_data: Optional[Dict[str, Any]] = None,
+    form: Optional[Dict[str, str]] = None,
+    user: Optional[str] = None,
+    max_time: int = 30,
+    location: bool = True,
+    insecure: bool = False,
+    include_headers: bool = False,
+) -> HttpResult:
+    """
+    Make HTTP request using curl. Parameters mirror curl options.
+
+    This is essential for BountyBench-style PoC verification where exploits
+    need to make direct HTTP requests to a running target application.
+
+    Args:
+        url: The URL to request (required)
+        method: HTTP method (GET, POST, PUT, DELETE, PATCH, etc.). Default: GET
+        headers: List of headers in "Header: Value" format (curl -H)
+        data: Raw request body data (curl -d)
+        json_data: JSON object to send as request body (curl --json)
+        form: Form data as key-value dict (curl -F)
+        user: Basic auth in "username:password" format (curl -u)
+        max_time: Maximum time in seconds for the request (curl --max-time). Default: 30
+        location: Follow redirects (curl -L). Default: True
+        insecure: Allow insecure SSL connections (curl -k). Default: False
+        include_headers: Include response headers in output (curl -i). Default: False
+
+    Returns:
+        HttpResult with fields:
+            status_code: HTTP status code (0 if request failed)
+            body: Response body
+            headers: Response headers (if include_headers=True)
+            success: True if request completed (even if 4xx/5xx)
+            error: Error message if request failed, None otherwise
+            curl_command: The curl command that was executed (for debugging)
+
+    Examples:
+        # Simple GET request
+        result = http_request("http://localhost:3000/api/users")
+
+        # POST with JSON body
+        result = http_request(
+            url="http://localhost:3000/auth/login",
+            method="POST",
+            json_data={"email": "attacker@test.com", "password": "pass"}
+        )
+
+        # DELETE with authorization header
+        result = http_request(
+            url="http://localhost:3000/v1/projects/123",
+            method="DELETE",
+            headers=["Authorization: Bearer token123"]
+        )
+    """
+    try:
+        # Build curl command
+        cmd = ["curl", "-s"]  # -s for silent mode
+
+        # Add -w to capture status code at the end
+        cmd.extend(["-w", "\n%{http_code}"])
+
+        # HTTP method
+        if method.upper() != "GET":
+            cmd.extend(["-X", method.upper()])
+
+        # Headers
+        if headers:
+            for header in headers:
+                cmd.extend(["-H", header])
+
+        # JSON data
+        if json_data:
+            json_str = json.dumps(json_data)
+            cmd.extend(["--json", json_str])
+        elif data:
+            cmd.extend(["-d", data])
+
+        # Form data
+        if form:
+            for key, value in form.items():
+                cmd.extend(["-F", f"{key}={value}"])
+
+        # Basic auth
+        if user:
+            cmd.extend(["-u", user])
+
+        # Max time
+        cmd.extend(["--max-time", str(max_time)])
+
+        # Follow redirects
+        if location:
+            cmd.append("-L")
+
+        # Insecure SSL
+        if insecure:
+            cmd.append("-k")
+
+        # Include headers in output
+        if include_headers:
+            cmd.append("-i")
+
+        # Add the URL
+        cmd.append(url)
+
+        # Build command string for debugging
+        cmd_for_log = cmd.copy()
+        if user:
+            for i, arg in enumerate(cmd_for_log):
+                if arg == "-u" and i + 1 < len(cmd_for_log):
+                    parts = cmd_for_log[i + 1].split(":", 1)
+                    cmd_for_log[i + 1] = f"{parts[0]}:***" if len(parts) > 1 else parts[0]
+
+        # Execute curl
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=max_time + 5
+        )
+
+        # Parse output - last line should be status code
+        output_lines = result.stdout.strip().rsplit("\n", 1)
+        if len(output_lines) == 2:
+            body = output_lines[0]
+            try:
+                status_code = int(output_lines[1])
+            except ValueError:
+                status_code = 0
+                body = result.stdout
+        else:
+            body = result.stdout
+            status_code = 0
+
+        # Parse headers if requested
+        response_headers = ""
+        if include_headers and body:
+            parts = body.split("\r\n\r\n", 1)
+            if len(parts) == 2:
+                response_headers = parts[0]
+                body = parts[1]
+
+        return HttpResult(
+            status_code=status_code,
+            body=body,
+            headers=response_headers if include_headers else "",
+            success=result.returncode == 0,
+            error=result.stderr if result.returncode != 0 else None,
+            curl_command=" ".join(shlex.quote(c) for c in cmd_for_log),
+        )
+
+    except subprocess.TimeoutExpired:
+        return HttpResult(
+            status_code=0,
+            body="",
+            headers="",
+            success=False,
+            error=f"Request timed out after {max_time} seconds",
+            curl_command="",
+        )
+    except FileNotFoundError:
+        return HttpResult(
+            status_code=0,
+            body="",
+            headers="",
+            success=False,
+            error="curl not found in PATH. Install curl to use http_request.",
+            curl_command="",
+        )
+    except Exception as e:
+        return HttpResult(
+            status_code=0,
+            body="",
+            headers="",
+            success=False,
+            error=str(e),
+            curl_command="",
+        )
+
+
+def run_script(
+    script_path: str,
+    timeout: int = 300,
+    additional_args: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Run a standalone script without a test framework.
+
+    This is essential for BountyBench-style PoC verification where exploits are standalone
+    scripts that make HTTP requests to a running target application.
+
+    Unlike run_test (which uses pytest/jest/forge test/etc.), this runs scripts directly:
+    - Python (.py): Uses python interpreter
+    - JavaScript (.js): Uses node
+    - Solidity (.sol): Uses forge script
+
+    Exit code determines success:
+    - 0: Exploit succeeded / vulnerability confirmed
+    - Non-zero: Exploit failed / no vulnerability
+
+    Args:
+        script_path: Path to the script file (relative to workspace)
+        timeout: Maximum execution time in seconds. Default: 300
+        additional_args: Additional arguments to pass to the script
+
+    Returns:
+        {
+            "success": bool,
+            "tests_passed": int,
+            "tests_failed": int,
+            "raw_output": str,
+            "error": str | None,
+        }
+    """
+    from pathlib import Path
+
+    agent = _get_current_agent()
+    if agent is None:
+        return {"success": False, "error": "No agent context available"}
+
+    workspace_path = getattr(agent, "workspace_path", None)
+    if not workspace_path:
+        workspace_path = getattr(agent, "repo_path", None) or getattr(
+            agent, "working_dir", None
+        )
+        if not workspace_path:
+            return {
+                "success": False,
+                "error": "No workspace available.",
+            }
+
+    workspace = Path(workspace_path)
+    script_file = workspace / script_path
+
+    if not script_file.exists():
+        return {
+            "success": False,
+            "error": f"Script file not found: {script_path}",
+            "raw_output": "",
+        }
+
+    adapter = _get_adapter()
+
+    if hasattr(adapter, "run_standalone_script"):
+        result = adapter.run_standalone_script(
+            workspace, script_file, timeout, additional_args
+        )
+        return {
+            "success": result.success,
+            "tests_passed": result.tests_passed,
+            "tests_failed": result.tests_failed,
+            "raw_output": result.raw_output,
+            "error": result.error,
+        }
+    else:
+        return {
+            "success": False,
+            "error": f"Adapter {adapter.framework_name} does not support run_standalone_script",
+            "raw_output": "",
+        }
 
 
 def get_tool_description(tool_fn, adapter=None) -> str:

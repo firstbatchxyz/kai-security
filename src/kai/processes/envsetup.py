@@ -9,12 +9,49 @@ from typing import Optional
 from kai.agents.agent_types import SetupAgent
 from kai.processes.base import BaseProcess
 from kai.schemas import (
+    AdapterType,
     AgentResponse,
     EnvironmentSetupInput,
     EnvironmentSetupOutput,
     MasterContext,
 )
 from kai.utils.workspace import get_supported_frameworks, get_workspace_adapter
+
+# Mapping from framework keywords to AdapterType for dependency graph builder.
+# Used by _infer_adapter_from_frameworks to set the correct adapter based on detected frameworks.
+FRAMEWORK_ADAPTER_MAP: dict[str, AdapterType] = {
+    # Solidity frameworks
+    "foundry": "solidity",
+    "forge": "solidity",
+    "hardhat": "solidity",
+    "truffle": "solidity",
+    "solidity": "solidity",
+    # Python frameworks
+    "python": "python",
+    "pytest": "python",
+    "pip": "python",
+    "poetry": "python",
+    "pipenv": "python",
+    "uv": "python",
+    # JavaScript frameworks
+    "node": "javascript",
+    "npm": "javascript",
+    "javascript": "javascript",
+    "js": "javascript",
+    # TypeScript frameworks
+    "typescript": "typescript",
+    "ts": "typescript",
+    # Package managers (could be JS or TS - default to JS)
+    "yarn": "javascript",
+    "pnpm": "javascript",
+    # C/C++ frameworks
+    "c": "c",
+    "cmake": "c",
+    "cpp": "c",
+    "make": "c",
+    "gcc": "c",
+    "clang": "c",
+}
 
 
 class EnvironmentSetupProcess(
@@ -101,6 +138,8 @@ class EnvironmentSetupProcess(
             master_context = self._normalize_master_context_paths(
                 master_context, master_repo_path
             )
+            # Infer adapter type from detected frameworks (defaults to "solidity")
+            master_context = self._infer_adapter_from_frameworks(master_context)
 
         # Ensure build/cache directories exist before locking down the golden master.
         # Foundry/CryticCompile may need to write caches under the project root
@@ -220,7 +259,7 @@ class EnvironmentSetupProcess(
                 pass
             return
 
-        def _onerror(func, p, _exc_info):  # type: ignore[no-untyped-def]
+        def _onerror(func, p, _exc_info):
             try:
                 pp = Path(p)
 
@@ -405,4 +444,32 @@ class EnvironmentSetupProcess(
         master_context.src_path = _normalize_path(master_context.src_path)
         master_context.lib_path = _normalize_path(master_context.lib_path)
         master_context.test_path = _normalize_path(master_context.test_path)
+        return master_context
+
+    def _infer_adapter_from_frameworks(
+        self, master_context: MasterContext
+    ) -> MasterContext:
+        """
+        Infer the adapter type from detected frameworks.
+
+        The SetupAgent doesn't set the adapter field (defaults to "solidity").
+        This method uses FRAMEWORK_ADAPTER_MAP to map framework names to the
+        correct adapter type for the dependency graph builder.
+        """
+        frameworks = getattr(master_context, "frameworks", None) or []
+
+        for fw in frameworks:
+            fw_lower = str(fw).lower()
+            if fw_lower in FRAMEWORK_ADAPTER_MAP:
+                master_context.adapter = FRAMEWORK_ADAPTER_MAP[fw_lower]
+                self.logger.info(
+                    f"Inferred adapter '{master_context.adapter}' from framework '{fw}'"
+                )
+                return master_context
+
+        # If no match found, log a warning but keep the default
+        self.logger.warning(
+            f"Could not infer adapter from frameworks {frameworks}; "
+            f"keeping default '{master_context.adapter}'"
+        )
         return master_context
