@@ -3,7 +3,7 @@ from typing import Optional, List, Dict, Any, Literal
 
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 
-from kai.agents.settings import MAIN_DEFAULT_MODEL, SETUP_DEFAULT_MODEL, MAX_TOOL_TURNS
+from kai.agents.settings import MAIN_DEFAULT_MODEL, SETUP_DEFAULT_MODEL, MAX_TOOL_TURNS, VALIDATION_MAX_TURNS, DEFAULT_MAX_TURNS
 from kai.utils.ids import generate_id
 
 # Adapter type literal for structured output validation
@@ -388,6 +388,7 @@ class WorkspaceValidationInput(BaseModel):
     presets: List["WorkspacePreset"] = Field(default_factory=list)
     timeout_compile_s: int = 120
     timeout_test_s: int = 120
+    max_turns: int = VALIDATION_MAX_TURNS
 
 
 class WorkspaceValidationResult(BaseModel):
@@ -748,7 +749,7 @@ class CampaignBudget(BaseModel):
 
     max_missions: int = 6
     max_agents: int = 3
-    max_turns_per_agent: int = 20
+    max_turns_per_agent: int = DEFAULT_MAX_TURNS
 
 
 class InvariantCluster(BaseModel):
@@ -816,7 +817,7 @@ class Mission(BaseModel):
     workspace_preset: WorkspacePreset = WorkspacePreset.CLEAN
     objectives: CampaignObjectives = Field(default_factory=CampaignObjectives)
     # Budget for this mission
-    max_turns: int = 20
+    max_turns: int = DEFAULT_MAX_TURNS
     # State
     status: str = "pending"  # pending, in_progress, completed, failed
 
@@ -886,7 +887,7 @@ class BlackboxBrief(BaseModel):
     class Budget(BaseModel):
         max_missions: int = Field(default=1, ge=1, le=1000)
         max_workers: int = Field(default=1, ge=1, le=1000)
-        max_turns_per_worker: int = Field(default=32, ge=1, le=1000)
+        max_turns_per_worker: int = Field(default=DEFAULT_MAX_TURNS, ge=1, le=1000)
 
     budget: Budget = Field(default_factory=Budget)
 

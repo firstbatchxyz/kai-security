@@ -106,10 +106,10 @@ class PythonToolAdapter(ToolAdapter):
         timeout: int = 120,
     ) -> CompileResult:
         """
-        Check Python syntax using py_compile on all .py files.
+        Check Python syntax using compileall on the entire workspace.
 
-        Uses the workspace venv python directly to avoid uv project sync
-        (which triggers editable installs and setuptools-scm issues).
+        Uses compileall for efficient batch syntax checking of all .py files
+        in a single subprocess call.
 
         Args:
             workspace_path: Path to the workspace directory
@@ -128,65 +128,67 @@ class PythonToolAdapter(ToolAdapter):
                 raw_output="",
             )
 
-        # Find all .py files
-        py_files = list(workspace_path.rglob("*.py"))
-
-        # Skip venv and common non-source directories
-        skip_dirs = {
-            ".venv",
-            "venv",
-            "__pycache__",
-            ".git",
-            "node_modules",
-            "build",
-            "dist",
-        }
-        py_files = [
-            f for f in py_files if not any(skip in f.parts for skip in skip_dirs)
+        # Use compileall to check all Python files in one subprocess call
+        # -q: quiet (only show errors), -x: exclude patterns
+        # Exclude .venv, __pycache__, .git, build, dist, node_modules
+        exclude_pattern = r"\.venv|__pycache__|\.git|build|dist|node_modules|venv"
+        cmd = [
+            str(venv_python),
+            "-m",
+            "compileall",
+            "-q",  # Quiet mode - only show errors
+            "-x",
+            exclude_pattern,
+            str(workspace_path),
         ]
 
-        if not py_files:
-            return CompileResult(
-                success=True,
-                errors=[],
-                raw_output="No Python files found to check",
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=str(workspace_path),
+                capture_output=True,
+                text=True,
+                timeout=timeout,
             )
 
-        errors = []
-        all_output = []
+            raw_output = (result.stderr + result.stdout).strip()
 
-        for py_file in py_files[:50]:  # Limit to first 50 files
-            try:
-                cmd = [str(venv_python), "-m", "py_compile", str(py_file)]
-
-                result = subprocess.run(
-                    cmd,
-                    cwd=str(workspace_path),
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout // max(len(py_files), 1),
+            if result.returncode == 0:
+                return CompileResult(
+                    success=True,
+                    errors=[],
+                    warnings=[],
+                    raw_output=raw_output or "All files passed syntax check",
                 )
 
-                if result.returncode != 0:
-                    error_msg = result.stderr.strip() or result.stdout.strip()
-                    errors.append(f"{py_file.name}: {error_msg}")
-                    all_output.append(f"=== {py_file} ===\n{error_msg}")
+            # Parse errors from compileall output
+            errors = []
+            for line in raw_output.split("\n"):
+                line = line.strip()
+                if line and ("SyntaxError" in line or "Error" in line or "Invalid" in line):
+                    errors.append(line[:200])
 
-            except subprocess.TimeoutExpired:
-                errors.append(f"{py_file.name}: Syntax check timed out")
-            except Exception as e:
-                errors.append(f"{py_file.name}: {str(e)}")
+            return CompileResult(
+                success=False,
+                errors=errors[:10] if errors else ["Syntax check failed - see raw_output"],
+                warnings=[],
+                raw_output=raw_output[:3000] if len(raw_output) > 3000 else raw_output,
+            )
 
-        raw_output = (
-            "\n".join(all_output) if all_output else "All files passed syntax check"
-        )
-
-        return CompileResult(
-            success=len(errors) == 0,
-            errors=errors[:10],
-            warnings=[],
-            raw_output=raw_output[:3000] if len(raw_output) > 3000 else raw_output,
-        )
+        except subprocess.TimeoutExpired:
+            return CompileResult(
+                success=False,
+                errors=[f"Syntax check timed out after {timeout}s"],
+                warnings=[],
+                raw_output="",
+            )
+        except Exception as e:
+            return CompileResult(
+                success=False,
+                errors=[str(e)],
+                warnings=[],
+                raw_output="",
+            )
 
     def install_dependencies(
         self,

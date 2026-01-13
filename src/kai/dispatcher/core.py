@@ -69,6 +69,16 @@ class DispatcherConfig:
     setup_max_turns: int = settings.SETUP_MAX_TURNS
     # Profiler agent settings
     profiler_max_turns: int = settings.PROFILER_MAX_TURNS
+    # Main agent settings (state, quant, blackbox, gamified)
+    main_agent_max_turns: int = settings.DEFAULT_MAX_TURNS
+    # Fixer agent settings
+    fixer_max_turns: int = settings.DEFAULT_MAX_TURNS
+    # Verifier agent settings
+    verifier_max_turns: int = settings.VERIFIER_MAX_TURNS
+    # Invariant synthesizer settings
+    invariant_synth_max_turns: int = settings.INVARIANT_SYNTH_MAX_TURNS
+    # Workspace validation settings
+    validation_max_turns: int = settings.VALIDATION_MAX_TURNS
     # Disable gamified agents (useful for BountyBench)
     disable_gamified: bool = False
     # Extra instructions to pass to agents (e.g., CWE hints)
@@ -497,6 +507,7 @@ class Dispatcher:
                         ],
                         timeout_compile_s=120,
                         timeout_test_s=120,
+                        max_turns=self.config.validation_max_turns,
                     )
                 )
                 if not ws_output.success:
@@ -523,7 +534,7 @@ class Dispatcher:
             profiler_input = ProfilerInput(
                 master_context=self.master_context,
                 dependency_graph=self.dependency_graph,
-                num_turns=5,
+                num_turns=self.config.profiler_max_turns,
                 model_name=model_name,
                 use_openai=use_openai,
             )
@@ -1025,7 +1036,7 @@ class Dispatcher:
                 dependency_graph=self.dependency_graph,
                 model_name=self.config.verifier_model,
                 use_openai=self.config.use_openai,
-                max_turns=settings.VERIFIER_MAX_TURNS,
+                max_turns=self.config.verifier_max_turns,
             )
 
             output = await process.run(process_input)
@@ -1166,7 +1177,7 @@ class Dispatcher:
                 verdict=verdict,
                 repo_path=workspace_path,
                 dependency_graph=self.dependency_graph,
-                max_tool_turns=settings.DEFAULT_MAX_TURNS,
+                max_tool_turns=self.config.fixer_max_turns,
                 model=self.config.fixer_model,
                 use_openai=self.config.use_openai,
             )
@@ -1325,6 +1336,7 @@ class Dispatcher:
             protocol_manifesto=self.protocol_manifesto,
             model_name=self.config.model,
             use_openai=self.config.use_openai,
+            max_turns_per_observation=self.config.invariant_synth_max_turns,
         )
 
         try:

@@ -19,6 +19,7 @@ from kai.agents.tools.tools import (
     _get_current_agent,
     dependency_graph_protocol_entrypoints,
     dependency_graph_public_entrypoints,
+    http_request,
     list_files,
 )
 from kai.schemas import Observation
@@ -225,4 +226,5 @@ __all__ = [
     "write_and_compile",
     "run_test",
     "add_observation",
+    "http_request",
 ]

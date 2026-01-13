@@ -233,18 +233,35 @@ class PythonWorkspaceAdapter(WorkspaceAdapter):
             return
 
         try:
-            subprocess.run(
-                [self._get_uv_bin(), "venv", str(venv_path)],
+            # Use just ".venv" as path since we're running with cwd=workspace
+            # This avoids path doubling when workspace is a relative path
+            result = subprocess.run(
+                [self._get_uv_bin(), "venv", ".venv"],
                 cwd=str(workspace),
                 capture_output=True,
                 text=True,
                 timeout=60,
             )
+
+            # Check return code
+            if result.returncode != 0:
+                error_msg = result.stderr or result.stdout or "Unknown error"
+                raise RuntimeError(f"uv venv failed: {error_msg[:500]}")
+
+            # Verify venv was actually created
+            venv_python = venv_path / "bin" / "python"
+            if not venv_python.exists():
+                raise RuntimeError(f"venv created but python not found at {venv_path}")
+
             if logger:
                 logger.debug(f"Created venv with uv at {venv_path}")
+
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("uv venv timed out after 60 seconds")
+        except RuntimeError:
+            raise  # Re-raise our errors
         except Exception as e:
-            if logger:
-                logger.warning(f"Failed to create venv: {e}")
+            raise RuntimeError(f"Failed to create venv: {e}")
 
     def _setup_source_symlinks(
         self,
@@ -374,7 +391,9 @@ class PythonWorkspaceAdapter(WorkspaceAdapter):
                 logger.debug("venv not found - skipping dependency installation")
             return True
 
-        venv_python = str(venv_path / "bin" / "python")
+        # Use relative path since we run commands with cwd=workspace
+        # This avoids path doubling when workspace is a relative path
+        venv_python = ".venv/bin/python"
         uv_bin = self._get_uv_bin()
 
         # Track installation status
