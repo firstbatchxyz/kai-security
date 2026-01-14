@@ -118,6 +118,10 @@ class PythonToolAdapter(ToolAdapter):
         Returns:
             CompileResult with success status and parsed errors
         """
+        # Resolve to absolute path to avoid path doubling when using cwd
+        # (relative paths + cwd cause the path to be doubled)
+        workspace_path = Path(workspace_path).resolve()
+
         # Use workspace venv python directly - avoids uv project sync
         # which would trigger editable install and setuptools-scm
         venv_python = self._get_venv_python(workspace_path)
@@ -210,6 +214,9 @@ class PythonToolAdapter(ToolAdapter):
         Returns:
             InstallResult with success status and installed packages
         """
+        # Resolve to absolute path to avoid path doubling when using cwd
+        workspace_path = Path(workspace_path).resolve()
+
         try:
             binary = self.find_binary(workspace_path)
         except FileNotFoundError as e:
@@ -448,6 +455,9 @@ class PythonToolAdapter(ToolAdapter):
         Returns:
             TestResult with parsed test outcomes
         """
+        # Resolve to absolute path to avoid path doubling when using cwd
+        workspace_path = Path(workspace_path).resolve()
+
         # Use workspace venv python directly - avoids uv project sync
         venv_python = self._get_venv_python(workspace_path)
         if venv_python is None:
@@ -477,6 +487,11 @@ class PythonToolAdapter(ToolAdapter):
         # Add verbosity
         if verbosity > 0:
             cmd.append("-" + "v" * min(verbosity, 3))
+
+        # Limit conftest loading to the test directory if specified
+        # This prevents project conftest.py files from breaking workspace validation smoke tests
+        if fw.get("confcutdir"):
+            cmd.extend(["--confcutdir", fw["confcutdir"]])
 
         # More framework kwargs
         if fw.get("markers"):

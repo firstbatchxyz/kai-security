@@ -122,3 +122,18 @@ class WorkspaceAdapter(ABC):
         Implementations must only return paths under `project_root` (no absolute/external paths).
         """
         return []
+
+    def get_validation_presets(self) -> list[WorkspacePreset]:
+        """
+        Return the workspace presets to validate for this framework.
+
+        Override in subclasses to exclude presets that don't work for the framework.
+        For example, Python excludes LIGHTWEIGHT because pip install needs to write
+        build artifacts, which fails with symlinked source directories.
+        """
+        return [
+            WorkspacePreset.LIGHTWEIGHT,
+            WorkspacePreset.CLEAN,
+            WorkspacePreset.WRITEABLE,
+            WorkspacePreset.SANDBOX,
+        ]

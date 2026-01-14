@@ -258,10 +258,13 @@ class PythonBuilder(TreeSitterBuilder):
                 dec_id = f"{file_id}:{dec}"
                 edges.append((func_id, dec_id, EdgeKind.ACCEPTS))
 
-        # Extract function calls within body
+        # Extract function calls and variable accesses within body
         body = self._find_child_by_type(node, "block")
         if body:
             self._extract_calls(body, func_id, source_bytes, edges)
+            self._extract_variable_accesses(
+                body, func_id, file_id, parent_id, source_bytes, edges
+            )
 
     def _extract_decorated(
         self,
@@ -387,3 +390,184 @@ class PythonBuilder(TreeSitterBuilder):
 
             # Recurse into children
             self._extract_calls(child, caller_id, source_bytes, edges)
+
+    def _extract_variable_accesses(
+        self,
+        node: Any,
+        func_id: str,
+        file_id: str,
+        container_id: Optional[str],
+        source_bytes: bytes,
+        edges: List[Tuple[str, str, EdgeKind]],
+    ) -> None:
+        """
+        Extract READS and WRITES edges from AST nodes.
+
+        Args:
+            node: Tree-sitter node to analyze
+            func_id: ID of the containing function
+            file_id: Path to the source file
+            container_id: ID of the containing class (or None for module-level)
+            source_bytes: Raw file content
+            edges: List to append edges to
+        """
+        for child in node.children:
+            # WRITES: Only track attribute assignments (self.x = ...) as "state writes"
+            # Skip local variable assignments - they're not persistent state
+            if child.type == "assignment":
+                # Only track attribute writes (self.x, cls.x)
+                for i, part in enumerate(child.children):
+                    if part.type == "=" or part.type == "type":
+                        break
+                    if part.type == "attribute":
+                        var_id = self._resolve_attribute_id(
+                            part, file_id, container_id, source_bytes
+                        )
+                        if var_id:
+                            edges.append((func_id, var_id, EdgeKind.WRITES))
+
+                # Process right side for reads
+                found_eq = False
+                for part in child.children:
+                    if part.type == "=":
+                        found_eq = True
+                        continue
+                    if found_eq:
+                        self._extract_variable_accesses(
+                            part, func_id, file_id, container_id, source_bytes, edges
+                        )
+                continue
+
+            # WRITES: Augmented assignment - only for attributes (self.x += ...)
+            if child.type == "augmented_assignment":
+                left = child.children[0] if child.children else None
+                if left and left.type == "attribute":
+                    var_id = self._resolve_attribute_id(
+                        left, file_id, container_id, source_bytes
+                    )
+                    if var_id:
+                        edges.append((func_id, var_id, EdgeKind.WRITES))
+                        edges.append((func_id, var_id, EdgeKind.READS))
+
+                # Process right side for reads
+                for part in child.children[2:]:
+                    self._extract_variable_accesses(
+                        part, func_id, file_id, container_id, source_bytes, edges
+                    )
+                continue
+
+            # For loops - just recurse, don't track loop variable as WRITES
+            if child.type == "for_statement":
+                # Recurse into for statement body
+                self._extract_variable_accesses(
+                    child, func_id, file_id, container_id, source_bytes, edges
+                )
+                continue
+
+            # READS: Identifiers (variable references)
+            if child.type == "identifier":
+                var_name = self._get_node_text(child, source_bytes)
+                # Skip special names and common builtins
+                if var_name not in (
+                    "self", "cls", "True", "False", "None",
+                    "print", "len", "range", "str", "int", "float", "list", "dict",
+                    "set", "tuple", "bool", "type", "object", "super", "isinstance",
+                    "hasattr", "getattr", "setattr", "delattr", "callable", "iter",
+                    "next", "enumerate", "zip", "map", "filter", "sorted", "reversed",
+                    "min", "max", "sum", "abs", "round", "open", "input", "format",
+                    "repr", "ord", "chr", "hex", "oct", "bin", "id", "hash", "dir",
+                    "vars", "globals", "locals", "eval", "exec", "compile",
+                    "Exception", "BaseException", "ValueError", "TypeError",
+                    "KeyError", "IndexError", "AttributeError", "RuntimeError",
+                    "StopIteration", "AssertionError", "ImportError", "OSError",
+                ):
+                    var_id = self._make_var_id(var_name, file_id, container_id)
+                    edges.append((func_id, var_id, EdgeKind.READS))
+                continue
+
+            # READS: Attribute access (self.x, obj.x)
+            if child.type == "attribute":
+                var_id = self._resolve_attribute_id(
+                    child, file_id, container_id, source_bytes
+                )
+                if var_id:
+                    edges.append((func_id, var_id, EdgeKind.READS))
+                continue
+
+            # Skip function/method names in calls (don't treat as variable read)
+            if child.type == "call":
+                # Process arguments only, not the function name
+                args = self._find_child_by_type(child, "argument_list")
+                if args:
+                    self._extract_variable_accesses(
+                        args, func_id, file_id, container_id, source_bytes, edges
+                    )
+                continue
+
+            # Recurse into other children
+            self._extract_variable_accesses(
+                child, func_id, file_id, container_id, source_bytes, edges
+            )
+
+    def _make_var_id(
+        self, var_name: str, file_id: str, container_id: Optional[str]
+    ) -> str:
+        """
+        Create variable ID matching the format used in _extract_assignment.
+
+        Args:
+            var_name: Name of the variable
+            file_id: Path to the source file
+            container_id: ID of the containing class (or None for module-level)
+
+        Returns:
+            Variable ID string
+        """
+        if container_id:
+            return f"{container_id}.{var_name}"
+        return f"{file_id}:{var_name}"
+
+    def _resolve_attribute_id(
+        self,
+        attr_node: Any,
+        file_id: str,
+        container_id: Optional[str],
+        source_bytes: bytes,
+    ) -> Optional[str]:
+        """
+        Resolve attribute access (self.x, cls.x) to a variable ID.
+
+        Maps self.x -> ClassName.x to match class attribute VARIABLE nodes.
+
+        Args:
+            attr_node: Tree-sitter attribute node
+            file_id: Path to the source file
+            container_id: ID of the containing class (or None for module-level)
+            source_bytes: Raw file content
+
+        Returns:
+            Variable ID string or None if cannot resolve
+        """
+        if len(attr_node.children) < 2:
+            return None
+
+        obj = attr_node.children[0]
+        attr_name_node = attr_node.children[-1]  # Last child is the attribute name
+
+        if attr_name_node.type != "identifier":
+            return None
+
+        attr_name = self._get_node_text(attr_name_node, source_bytes)
+        obj_name = (
+            self._get_node_text(obj, source_bytes) if obj.type == "identifier" else None
+        )
+
+        # self.x or cls.x -> ClassName.x
+        if obj_name in ("self", "cls") and container_id:
+            return f"{container_id}.{attr_name}"
+
+        # Other attribute access - use full form
+        if obj_name:
+            return f"{file_id}:{obj_name}.{attr_name}"
+
+        return None

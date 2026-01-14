@@ -196,6 +196,7 @@ class InvariantProcessInput(BaseModel):
     model_name: str = MAIN_DEFAULT_MODEL
     use_openai: bool = False
     max_chunk_functions: int = 25  # Max functions per chunk
+    max_concurrent_chunks: int = 10  # Max parallel LLM calls for chunks
 
 
 class InvariantProcessOutput(BaseModel):

@@ -77,6 +77,8 @@ class DispatcherConfig:
     verifier_max_turns: int = settings.VERIFIER_MAX_TURNS
     # Invariant synthesizer settings
     invariant_synth_max_turns: int = settings.INVARIANT_SYNTH_MAX_TURNS
+    # Invariant process settings
+    max_concurrent_invariant_chunks: int = 10  # Max parallel LLM calls for vocab chunks
     # Workspace validation settings
     validation_max_turns: int = settings.VALIDATION_MAX_TURNS
     # Disable gamified agents (useful for BountyBench)
@@ -85,6 +87,8 @@ class DispatcherConfig:
     extra_instructions: Optional[str] = None
     # Skip workspace validation (useful when context is pre-validated)
     skip_workspace_validation: bool = False
+    # Number of blackbox missions to create (for HTTP/exploratory testing)
+    blackbox_missions: int = 1
 
 
 class Dispatcher:
@@ -492,19 +496,22 @@ class Dispatcher:
                 from kai.processes.workspace_validation import (
                     WorkspaceValidationProcess,
                 )
-                from kai.schemas import WorkspacePreset, WorkspaceValidationInput
+                from kai.schemas import WorkspaceValidationInput
+                from kai.utils.workspace import get_workspace_adapter
+
+                # Get validation presets from adapter (framework-specific)
+                if not self.master_context or not self.master_context.frameworks:
+                    raise RuntimeError("MasterContext.frameworks is required for workspace validation")
+                framework = self.master_context.frameworks[0]
+                adapter = get_workspace_adapter(framework)
+                validation_presets = adapter.get_validation_presets()
 
                 ws_output = await WorkspaceValidationProcess(
                     context=self.master_context, workspace_dir=self.config.workspace_dir
                 ).run(
                     WorkspaceValidationInput(
                         master_context=self.master_context,
-                        presets=[
-                            WorkspacePreset.LIGHTWEIGHT,
-                            WorkspacePreset.CLEAN,
-                            WorkspacePreset.WRITEABLE,
-                            WorkspacePreset.SANDBOX,
-                        ],
+                        presets=validation_presets,
                         timeout_compile_s=120,
                         timeout_test_s=120,
                         max_turns=self.config.validation_max_turns,
@@ -596,6 +603,7 @@ class Dispatcher:
                 protocol_manifesto=self.protocol_manifesto,
                 model_name=model_name,
                 use_openai=use_openai,
+                max_concurrent_chunks=self.config.max_concurrent_invariant_chunks,
             )
             inv_output = await inv_process.run(inv_input)
 
@@ -786,7 +794,9 @@ class Dispatcher:
         """Queue blackbox missions (phase 0)."""
         if not self._planner:
             return
-        campaign, missions = self._planner.build_blackbox_campaign()
+        campaign, missions = self._planner.build_blackbox_campaign(
+            num_missions=self.config.blackbox_missions
+        )
         self.campaigns.append(campaign)
         await self._persist(
             self._state_manager.save_campaigns([campaign])
@@ -828,6 +838,9 @@ class Dispatcher:
     async def _queue_gamified_missions(self) -> None:
         """Queue gamified missions from invariant clusters (phase 2)."""
         if not self._planner:
+            return
+        if self.config.disable_gamified:
+            self.logger.info("Gamified missions disabled via config")
             return
         campaigns, missions = self._planner.build_gamified_campaigns(
             list(self.invariants.values())

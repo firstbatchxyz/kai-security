@@ -402,12 +402,17 @@ class WorkspaceValidationProcess(
                                 framework_kwargs={"build_dir": "build"},
                             )
                         elif fw == "python":
+                            # Use confcutdir to limit conftest loading to tests/poc
+                            # This prevents project conftest.py files from breaking the smoke test
                             test_result = tool_adapter.run_test(
                                 workspace_path=workspace,
                                 match_test="test_smoke",
                                 verbosity=1,
                                 timeout=int(input_data.timeout_test_s),
-                                framework_kwargs={"match_path": smoke_relpath},
+                                framework_kwargs={
+                                    "match_path": smoke_relpath,
+                                    "confcutdir": "tests/poc",
+                                },
                             )
                         elif fw in {"javascript", "js"}:
                             test_result = tool_adapter.run_test(

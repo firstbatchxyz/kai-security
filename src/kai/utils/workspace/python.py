@@ -226,6 +226,17 @@ class PythonWorkspaceAdapter(WorkspaceAdapter):
             writable.append(path)
         return writable
 
+    def get_validation_presets(self) -> List[WorkspacePreset]:
+        """
+        Python excludes LIGHTWEIGHT because pip install needs to write build
+        artifacts (.egg-info, wheels), which fails with symlinked source dirs.
+        """
+        return [
+            WorkspacePreset.CLEAN,
+            WorkspacePreset.WRITEABLE,
+            WorkspacePreset.SANDBOX,
+        ]
+
     def _create_venv(self, workspace: Path, logger: Optional[Any] = None) -> None:
         """Create a virtual environment in the workspace using uv."""
         venv_path = workspace / ".venv"
@@ -425,15 +436,22 @@ class PythonWorkspaceAdapter(WorkspaceAdapter):
                 elif error:
                     failed_sources.append(error)
             else:
-                # No dependencies found in pyproject.toml, that's OK
+                # No dependencies found in pyproject.toml - don't mark as successful
+                # so we can fall through to try setup.py
                 if logger:
-                    logger.debug("No dependencies found in pyproject.toml")
-                installed_successfully = True
+                    logger.debug("No dependencies found in pyproject.toml, will try setup.py")
 
-        # For setup.py, we still need pip install -e . but use uv pip
+        # For setup.py, install build deps first then do non-editable install
         if (workspace / "setup.py").exists() and not installed_successfully:
             any_dep_file_found = True
-            cmd = [uv_bin, "pip", "install", "-e", ".", "--python", venv_python]
+            # Install build dependencies first
+            self._run_uv_install(
+                [uv_bin, "pip", "install", "setuptools", "wheel", "--python", venv_python],
+                workspace,
+                "build-deps",
+                timeout=60,
+            )
+            cmd = [uv_bin, "pip", "install", ".", "--python", venv_python]
             success, error = self._run_uv_install(cmd, workspace, "setup.py", logger=logger)
             if success:
                 installed_successfully = True
@@ -565,11 +583,24 @@ sys.path.insert(0, str(_workspace))
 
             dest_path = dst / item.name
 
-            if item.is_dir():
+            # Handle symlinks: skip broken ones, copy valid ones as symlinks
+            if item.is_symlink():
+                try:
+                    # Check if symlink target exists
+                    item.resolve(strict=True)
+                    # Valid symlink - copy as symlink
+                    link_target = os.readlink(item)
+                    dest_path.symlink_to(link_target)
+                except (OSError, FileNotFoundError):
+                    # Broken symlink - skip it
+                    continue
+            elif item.is_dir():
                 if not item.name.startswith(".") or item.name == ".github":
                     self._copy_with_excludes(item, dest_path, excludes)
-            else:
+            elif item.exists():
+                # Regular file that exists
                 shutil.copy2(item, dest_path)
+            # Skip files that don't exist (race condition protection)
 
     def _make_writable(self, root: Path) -> None:
         """Ensure workspace directories/files are writable."""

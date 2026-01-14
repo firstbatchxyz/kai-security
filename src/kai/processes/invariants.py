@@ -11,6 +11,7 @@ This process generates invariants by:
 LLM can only reference IDs from the provided vocabulary - cannot hallucinate locations.
 """
 
+import asyncio
 import json
 from collections import defaultdict
 from pathlib import Path
@@ -100,19 +101,46 @@ class InvariantProcess(BaseProcess[InvariantProcessInput, InvariantProcessOutput
             chunks = self._chunk_vocab(vocab, input_data.max_chunk_functions)
             self.logger.info(f"Created {len(chunks)} chunks")
 
-            # Step 3: Per-chunk LLM generation
+            # Step 3: Per-chunk LLM generation (parallel)
+            # Use semaphore to limit concurrent API calls (avoid rate limiting)
+            max_concurrent = input_data.max_concurrent_chunks or 10
+            semaphore = asyncio.Semaphore(max_concurrent)
+
+            async def process_chunk_with_semaphore(chunk: VocabChunk):
+                async with semaphore:
+                    self.logger.info(f"Processing {chunk.chunk_id}...")
+                    return await self._generate_invariants_for_chunk(
+                        chunk=chunk,
+                        manifesto=manifesto,
+                        actor_matrix=actor_matrix,
+                        model_name=input_data.model_name,
+                        use_openai=input_data.use_openai,
+                    )
+
+            self.logger.info(
+                f"Processing {len(chunks)} chunks in parallel "
+                f"(max {max_concurrent} concurrent)..."
+            )
+
+            # Run all chunks in parallel
+            results = await asyncio.gather(
+                *[process_chunk_with_semaphore(chunk) for chunk in chunks],
+                return_exceptions=True,
+            )
+
+            # Aggregate results
             raw_invariants: List[Invariant] = []
             total_cost = 0.0
             total_tokens: Dict[str, int] = {"prompt_tokens": 0, "completion_tokens": 0}
 
-            for chunk in chunks:
-                chunk_invs, cost, tokens = await self._generate_invariants_for_chunk(
-                    chunk=chunk,
-                    manifesto=manifesto,
-                    actor_matrix=actor_matrix,
-                    model_name=input_data.model_name,
-                    use_openai=input_data.use_openai,
-                )
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    self.logger.warning(
+                        f"Chunk {chunks[i].chunk_id} failed: {result}"
+                    )
+                    continue
+
+                chunk_invs, cost, tokens = result
                 raw_invariants.extend(chunk_invs)
                 total_cost += cost
                 total_tokens["prompt_tokens"] += tokens.get("prompt_tokens", 0)
@@ -195,9 +223,13 @@ class InvariantProcess(BaseProcess[InvariantProcessInput, InvariantProcessOutput
                 )
             )
 
-            # Track file -> contracts
-            if ep.file and ep.container:
-                files_map[ep.file].add(ep.container)
+            # Track file -> containers (or module-level for standalone functions)
+            if ep.file:
+                if ep.container:
+                    files_map[ep.file].add(ep.container)
+                else:
+                    # For standalone functions (JS/TS/Python), use "<module>" as placeholder
+                    files_map[ep.file].add("<module>")
 
             # Build var entries
             for var_ref in reads + writes:

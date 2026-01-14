@@ -1,6 +1,7 @@
 from openai import AsyncOpenAI
 from typing import Optional, Union, Dict, Tuple, List, Any, Callable
 
+import ast
 import json
 import requests
 
@@ -14,6 +15,36 @@ from kai.schemas import ChatMessage, Role
 
 # Cache for model pricing to avoid repeated API calls
 _pricing_cache: Dict[str, Dict[str, float]] = {}
+
+
+def _parse_tool_arguments(args_str: str) -> Dict[str, Any]:
+    """
+    Parse tool call arguments, handling both JSON and Python literal formats.
+
+    Some models output Python dict literals (with True/False/None) instead of
+    proper JSON (with true/false/null). This function handles both formats.
+
+    Args:
+        args_str: The raw argument string from the LLM
+
+    Returns:
+        Parsed arguments as a dict, or empty dict if parsing fails
+    """
+    # First, try standard JSON parsing
+    try:
+        return json.loads(args_str)
+    except json.JSONDecodeError:
+        pass
+
+    # Fall back to Python literal parsing (handles True/False/None)
+    try:
+        result = ast.literal_eval(args_str)
+        if isinstance(result, dict):
+            return result
+    except (ValueError, SyntaxError):
+        pass
+
+    return {}
 
 
 def create_openai_client(use_openai: bool = False) -> AsyncOpenAI:
@@ -343,10 +374,7 @@ async def get_model_response_with_tools(
             first_in_batch = True
             for tool_call in message.tool_calls:
                 func_name = tool_call.function.name
-                try:
-                    func_args = json.loads(tool_call.function.arguments)
-                except json.JSONDecodeError:
-                    func_args = {}
+                func_args = _parse_tool_arguments(tool_call.function.arguments)
 
                 # Record the tool call (include reasoning on first call of batch)
                 tool_entry = {

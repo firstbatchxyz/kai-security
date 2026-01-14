@@ -185,6 +185,72 @@ class Config:
         # Should have methods from UserService
         assert "add_user" in unit_names or "get_user" in unit_names
 
+    @pytest.mark.skipif(
+        not _has_tree_sitter_python(), reason="tree-sitter-python not installed"
+    )
+    def test_build_extracts_reads_writes_edges(self, builder: PythonBuilder, tmp_path: Path):
+        """Should extract READS and WRITES edges for variable accesses."""
+        # Create a test file with clear variable accesses
+        (tmp_path / "counter.py").write_text("""
+class Counter:
+    count = 0
+
+    def increment(self):
+        self.count += 1
+        return self.count
+
+    def reset(self):
+        self.count = 0
+
+    def get_value(self):
+        return self.count
+
+global_var = 10
+
+def read_global():
+    x = global_var
+    return x
+
+def write_global():
+    global global_var
+    global_var = 20
+""")
+        graph = builder.build(tmp_path)
+
+        # Get all edges using the edges() iterator
+        all_edges = list(graph.edges())
+
+        # Should have some READS edges
+        reads_edges = [(s, d, k) for s, k, d, _ in all_edges if k == EdgeKind.READS]
+        assert len(reads_edges) > 0, "Should have READS edges"
+
+        # Should have some WRITES edges
+        writes_edges = [(s, d, k) for s, k, d, _ in all_edges if k == EdgeKind.WRITES]
+        assert len(writes_edges) > 0, "Should have WRITES edges"
+
+        # Check specific patterns:
+        # increment() should WRITE to Counter.count (via self.count += 1)
+        # increment() should also READ from Counter.count (augmented assignment reads)
+        # get_value() should READ from Counter.count
+        # reset() should WRITE to Counter.count
+
+        # Find the function IDs
+        units = {graph.node(u).name: u for u in graph.nodes(NodeKind.UNIT)}
+
+        # Check increment method has both READS and WRITES for self.count
+        if "increment" in units:
+            increment_id = units["increment"]
+            increment_writes = [e for e in writes_edges if increment_id in e[0]]
+            increment_reads = [e for e in reads_edges if increment_id in e[0]]
+            assert len(increment_writes) > 0, "increment should have WRITES edges"
+            assert len(increment_reads) > 0, "increment should have READS edges (augmented assignment)"
+
+        # Check read_global has READS edge
+        if "read_global" in units:
+            read_global_id = units["read_global"]
+            read_global_reads = [e for e in reads_edges if read_global_id in e[0]]
+            assert len(read_global_reads) > 0, "read_global should have READS edges"
+
 
 class TestJavaScriptBuilder:
     """Tests for JavaScriptBuilder."""
