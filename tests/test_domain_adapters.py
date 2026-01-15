@@ -4,12 +4,11 @@ Tests for domain adapters (Python, JavaScript, C).
 Tests the DomainAdapter interface implementations for each language.
 """
 
-import pytest  # type: ignore[import-not-found]
+import pytest
 
 from kai.utils.dependency.adapters import (
     get_adapter,
     ADAPTER_REGISTRY,
-    DomainAdapter,
     SolidityAdapter,
     PythonAdapter,
     JavaScriptAdapter,
@@ -52,7 +51,7 @@ class TestDomainAdapterRegistry:
         adapter_lower = get_adapter("python")
         adapter_upper = get_adapter("PYTHON")
         adapter_mixed = get_adapter("PyThOn")
-        assert type(adapter_lower) == type(adapter_upper) == type(adapter_mixed)
+        assert type(adapter_lower) is type(adapter_upper) is type(adapter_mixed)
 
     def test_get_adapter_invalid(self):
         """Should raise ValueError for unknown adapter."""

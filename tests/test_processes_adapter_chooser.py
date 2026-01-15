@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import pytest  # type: ignore[import-not-found]
+import pytest
 
 from kai.processes.adapter_chooser import AdapterChooserProcess
 from kai.schemas import AdapterChooserInput, Framework, Language

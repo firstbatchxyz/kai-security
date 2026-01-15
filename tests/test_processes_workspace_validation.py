@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import pytest  # type: ignore[import-not-found]
+import pytest
 
 from kai.agents import settings
 from kai.processes.workspace_validation import WorkspaceValidationProcess

@@ -6,7 +6,7 @@ Tests the ToolAdapter interface implementations for each language.
 
 from pathlib import Path
 
-import pytest  # type: ignore[import-not-found]
+import pytest
 
 from kai.utils.tool_adapters import (
     get_tool_adapter,

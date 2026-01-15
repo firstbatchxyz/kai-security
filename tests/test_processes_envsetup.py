@@ -2,7 +2,7 @@ import os
 import shutil
 from pathlib import Path
 
-import pytest  # type: ignore[import-not-found]
+import pytest
 
 from kai.agents import settings
 from kai.processes.envsetup import EnvironmentSetupProcess
@@ -58,7 +58,7 @@ async def test_envsetup_process_integration(monkeypatch):
     result = await process.execute(
         EnvironmentSetupInput(
             repo_url=repo_url,
-            num_turns=int(os.getenv("SETUP_TURNS", settings.DEFAULT_TURNS)),
+            num_turns=int(os.getenv("SETUP_TURNS", settings.MAX_TOOL_TURNS)),
             model_name=model_name,
             use_openai=bool(
                 settings.OPENAI_API_KEY and not settings.OPENROUTER_API_KEY

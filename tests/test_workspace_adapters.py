@@ -5,9 +5,8 @@ Tests the WorkspaceAdapter interface implementations for each language.
 """
 
 from pathlib import Path
-import shutil
 
-import pytest  # type: ignore[import-not-found]
+import pytest
 
 from kai.schemas import MasterContext, WorkspacePreset
 from kai.utils.workspace import (
