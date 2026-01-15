@@ -69,6 +69,7 @@ class VerifierProcess(BaseProcess[VerifierProcessInput, VerifierProcessOutput]):
             model=input_data.model_name,
             use_openai=input_data.use_openai,
             execution_id=workspace_id,
+            fallback_model=input_data.fallback_model,
         )
 
         # Set workspace path so tools can write/run tests

@@ -44,6 +44,7 @@ class BaseAgent(ABC):
         parent_agent_id: Optional[str] = None,  # Track hierarchy
         depth: int = 0,  # Depth in hierarchy (for logging)
         system_prompt_tools_schema: str | None = None,
+        fallback_model: Optional[str] = None,  # Fallback model if primary fails
     ):
         if agent_type is None:
             raise ValueError("agent_type must be provided")
@@ -149,6 +150,7 @@ class BaseAgent(ABC):
 
         # Set model: use provided model, or fallback to MAIN_DEFAULT_MODEL
         self.model = model if model else MAIN_DEFAULT_MODEL
+        self.fallback_model = fallback_model  # Used if primary model fails
 
         # Each Agent instance gets its own clients to avoid bottlenecks
         if use_vllm:
@@ -302,6 +304,7 @@ class BaseAgent(ABC):
                 use_vllm=self.use_vllm,
                 use_openai=self.use_openai,
                 max_tool_rounds=1,  # One round at a time for fine control
+                fallback_model=self.fallback_model,
             )
 
             # Update budget

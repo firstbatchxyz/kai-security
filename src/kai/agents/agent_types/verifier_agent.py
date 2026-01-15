@@ -74,6 +74,7 @@ class VerifierAgent(BaseAgent):
         model: Optional[str] = settings.VERIFIER_DEFAULT_MODEL,
         use_openai: bool = False,
         execution_id: Optional[str] = None,
+        fallback_model: Optional[str] = settings.FALLBACK_MODEL,
     ):
         # Initialize with minimal system prompt - will be replaced by set_toolcalling_prompt()
         super().__init__(
@@ -83,6 +84,7 @@ class VerifierAgent(BaseAgent):
             model=model,
             agent_type=AgentType.VERIFIER,
             use_openai=use_openai,
+            fallback_model=fallback_model,
         )
 
         # Store context

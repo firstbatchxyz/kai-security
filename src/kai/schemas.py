@@ -3,7 +3,7 @@ from typing import Optional, List, Dict, Any, Literal
 
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 
-from kai.agents.settings import MAIN_DEFAULT_MODEL, SETUP_DEFAULT_MODEL, MAX_TOOL_TURNS, VALIDATION_MAX_TURNS, DEFAULT_MAX_TURNS
+from kai.agents.settings import MAIN_DEFAULT_MODEL, SETUP_DEFAULT_MODEL, MAX_TOOL_TURNS, VALIDATION_MAX_TURNS, DEFAULT_MAX_TURNS, FALLBACK_MODEL
 from kai.utils.ids import generate_id
 
 # Adapter type literal for structured output validation
@@ -951,6 +951,7 @@ class VerifierProcessInput(BaseModel):
     master_context: "MasterContext"
     dependency_graph: Any = None  # DependencyGraph object
     model_name: str = MAIN_DEFAULT_MODEL
+    fallback_model: Optional[str] = FALLBACK_MODEL  # Fallback when primary model fails
     use_openai: bool = False
     max_turns: int = 16
 

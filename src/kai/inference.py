@@ -1,8 +1,10 @@
 from openai import AsyncOpenAI
 from typing import Optional, Union, Dict, Tuple, List, Any, Callable
 
+import asyncio
 import ast
 import json
+import logging
 import requests
 
 from kai.agents.settings import (
@@ -12,6 +14,8 @@ from kai.agents.settings import (
     OPENAI_API_KEY,
 )
 from kai.schemas import ChatMessage, Role
+
+logger = logging.getLogger(__name__)
 
 # Cache for model pricing to avoid repeated API calls
 _pricing_cache: Dict[str, Dict[str, float]] = {}
@@ -230,6 +234,8 @@ async def get_model_response_with_tools(
     use_vllm: bool = False,
     use_openai: bool = False,
     max_tool_rounds: int = 1,
+    max_retries: int = 3,
+    fallback_model: Optional[str] = None,
 ) -> Tuple[str, List[Dict[str, Any]], Dict[str, int], List[Dict[str, Any]]]:
     """
     Get a response from a model using OpenAI's native tool calling.
@@ -243,6 +249,8 @@ async def get_model_response_with_tools(
         use_vllm: Whether to use vLLM backend.
         use_openai: Whether to use OpenAI API directly.
         max_tool_rounds: Maximum rounds of tool calling (default 1).
+        max_retries: Maximum retry attempts for API errors (default 3).
+        fallback_model: Model to use if primary model fails after retries.
 
     Returns:
         Tuple of (final_response_text, tool_calls_made, usage_dict, messages_payload)
@@ -300,42 +308,82 @@ async def get_model_response_with_tools(
         return str(obj)
 
     last_content: str = ""
+    active_model = model  # Track which model is being used (may change on fallback)
 
     for _ in range(max_tool_rounds):
-        try:
-            completion = await client.chat.completions.create(
-                model=model,
-                messages=messages_payload,
-                tools=tools if tools else None,
-                tool_choice="auto" if tools else None,
-            )
-        except Exception as e:
-            error_msg = str(e)
-            if any(
-                keyword in error_msg.lower()
-                for keyword in ["context length", "maximum context", "tokens"]
-            ):
-                total_chars = sum(len(str(m)) for m in messages_payload)
-                approx_tokens = total_chars // 4
-                raise Exception(
-                    f"Context length exceeded: approximately {approx_tokens} tokens.\n"
-                    f"Original error: {error_msg}"
-                )
-            raise
+        # Retry loop with exponential backoff and optional fallback
+        completion = None
+        last_error = None
+        models_to_try = [active_model]
+        if fallback_model and fallback_model != active_model:
+            models_to_try.append(fallback_model)
 
-        # Defensive checks: some OpenAI-compatible backends can return malformed/partial
-        # responses that deserialize but lack choices. Fail with a clear error instead
-        # of crashing with "NoneType is not subscriptable".
-        try:
-            choices = getattr(completion, "choices", None)
-            if not choices:
-                raise Exception(
-                    f"Tool-calling completion missing choices (model={model}). "
-                    f"completion={repr(completion)}"
-                )
-        except Exception:
-            # Re-raise as a regular exception for upstream handling/logging.
-            raise
+        for model_to_try in models_to_try:
+            for attempt in range(max_retries):
+                try:
+                    completion = await client.chat.completions.create(
+                        model=model_to_try,
+                        messages=messages_payload,
+                        tools=tools if tools else None,
+                        tool_choice="auto" if tools else None,
+                    )
+
+                    # Check for error in response body (OpenRouter returns 200 with error)
+                    error_field = getattr(completion, "error", None)
+                    if error_field:
+                        err_msg = error_field.get("message", "Unknown") if isinstance(error_field, dict) else str(error_field)
+                        err_code = error_field.get("code", "unknown") if isinstance(error_field, dict) else "unknown"
+                        raise Exception(f"API error ({err_code}): {err_msg}")
+
+                    # Check for missing choices
+                    choices = getattr(completion, "choices", None)
+                    if not choices:
+                        raise Exception(
+                            f"Tool-calling completion missing choices (model={model_to_try}). "
+                            f"completion={repr(completion)}"
+                        )
+
+                    # Success - update active_model if we switched
+                    if model_to_try != active_model:
+                        logger.info(f"Fallback to {model_to_try} succeeded")
+                        active_model = model_to_try
+                    break  # Exit retry loop
+
+                except Exception as e:
+                    last_error = e
+                    error_msg = str(e).lower()
+
+                    # Don't retry context length errors
+                    if any(kw in error_msg for kw in ["context length", "maximum context", "tokens"]):
+                        total_chars = sum(len(str(m)) for m in messages_payload)
+                        approx_tokens = total_chars // 4
+                        raise Exception(
+                            f"Context length exceeded: approximately {approx_tokens} tokens.\n"
+                            f"Original error: {e}"
+                        )
+
+                    # Retry with exponential backoff
+                    if attempt < max_retries - 1:
+                        wait_time = (2 ** attempt) + (0.5 * attempt)
+                        logger.warning(
+                            f"API call failed (attempt {attempt + 1}/{max_retries}): {e}. "
+                            f"Retrying in {wait_time:.1f}s..."
+                        )
+                        await asyncio.sleep(wait_time)
+                    else:
+                        logger.warning(f"Model {model_to_try} failed after {max_retries} attempts: {e}")
+
+            # If we got a valid completion, break out of models loop
+            if completion and getattr(completion, "choices", None):
+                break
+
+            # If this model failed, try fallback
+            if model_to_try == active_model and fallback_model and fallback_model != active_model:
+                logger.info(f"Primary model {active_model} failed, trying fallback {fallback_model}")
+
+        # If still no completion after all retries and fallback, raise
+        if not completion or not getattr(completion, "choices", None):
+            raise Exception(f"All API attempts failed. Last error: {last_error}")
 
         # Update usage
         if completion.usage:
