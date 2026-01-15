@@ -28,7 +28,7 @@ from kai.agents.tools.tools import (
 )
 
 # Import shared test execution tools from state_tools
-from kai.agents.tools.state_tools import run_test, patch_file
+from kai.agents.tools.state_tools import run_test, patch_file, run_script, http_request
 
 
 def analyze_arithmetic(function_id: str) -> Dict[str, Any]:
@@ -489,8 +489,10 @@ __all__ = [
     # Test execution tools
     "write_and_compile",
     "run_test",
+    "run_script",
     "patch_file",
     "register_exploit",
+    "http_request",
     # Quant-specific tools
     "analyze_arithmetic",
     "compute_boundary_values",

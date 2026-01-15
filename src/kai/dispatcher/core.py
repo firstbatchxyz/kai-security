@@ -3,8 +3,10 @@ Dispatcher: Mission control for Kai v2.
 """
 
 import asyncio
+import json
 import logging
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
 from kai.agents import settings
@@ -60,10 +62,14 @@ class DispatcherConfig:
     model: str = settings.MAIN_DEFAULT_MODEL
     verifier_model: str = settings.VERIFIER_DEFAULT_MODEL
     fixer_model: str = settings.FIXER_DEFAULT_MODEL
+    fallback_model: str = settings.FALLBACK_MODEL  # Fallback when primary model fails
     use_openai: bool = False
     # Rollout saving
     save_rollouts: bool = False
     rollouts_dir: Optional[str] = None  # If None, uses workspace_dir/rollouts
+    # Output directory for results (invariants.json, report.json, etc.)
+    # If None, derives from rollouts_dir parent or falls back to workspace_dir
+    output_dir: Optional[str] = None
     # Setup agent settings
     setup_model: str = settings.SETUP_DEFAULT_MODEL
     setup_max_turns: int = settings.SETUP_MAX_TURNS
@@ -428,35 +434,41 @@ class Dispatcher:
         )
 
         try:
-            # Use provided MasterContext if given (BountyBench mode)
-            if master_context:
-                self.master_context = master_context
-                self.logger.info(
-                    f"Using provided MasterContext: {master_context.root_path}"
-                )
-            else:
-                self.logger.info("Step 1/6: Environment Setup...")
-                env_process = EnvironmentSetupProcess(
-                    MasterContext(
-                        root_path="./", compile_success=True
-                    )  # TODO: get path from env
-                )
-                env_input = EnvironmentSetupInput(
-                    repo_url=repo_url or "",
-                    num_turns=self.config.setup_max_turns,
-                    model_name=self.config.setup_model,
-                    use_openai=use_openai,
-                    repo_path_override=repo_path,
-                )
-                env_output = await env_process.run(env_input)
+            # Always run EnvironmentSetupProcess to discover paths
+            # If master_context is provided (BountyBench mode), use its root_path
+            self.logger.info("Step 1/6: Environment Setup...")
 
-                if not env_output.success or not env_output.master_context:
-                    self.logger.error(
-                        f"Environment setup failed: {env_output.error_message}"
-                    )
-                    return False
+            # Determine repo path - use provided master_context.root_path if available
+            effective_repo_path = repo_path
+            if master_context and master_context.root_path:
+                effective_repo_path = master_context.root_path
+                self.logger.info(f"Using provided root_path: {effective_repo_path}")
 
-                self.master_context = env_output.master_context
+            env_process = EnvironmentSetupProcess(
+                MasterContext(
+                    root_path=effective_repo_path or "./", compile_success=True
+                )
+            )
+            env_input = EnvironmentSetupInput(
+                repo_url=repo_url or "",
+                num_turns=self.config.setup_max_turns,
+                model_name=self.config.setup_model,
+                use_openai=use_openai,
+                repo_path_override=effective_repo_path,
+            )
+            env_output = await env_process.run(env_input)
+
+            if not env_output.success or not env_output.master_context:
+                self.logger.error(
+                    f"Environment setup failed: {env_output.error_message}"
+                )
+                return False
+
+            self.master_context = env_output.master_context
+
+            # Preserve adapter from provided master_context if set
+            if master_context and master_context.adapter:
+                self.master_context.adapter = master_context.adapter
 
             self.logger.info(f"MasterContext ready: {self.master_context.root_path}")
 
@@ -610,6 +622,21 @@ class Dispatcher:
             if inv_output.success:
                 self.invariants = {inv.id: inv for inv in inv_output.invariants}
                 self.logger.info(f"Invariants ready: {len(self.invariants)} invariants")
+
+                # Save invariants to file immediately
+                invariants_data = [inv.model_dump() for inv in self.invariants.values()]
+                # Determine output directory: output_dir > rollouts_dir parent > workspace_dir
+                if self.config.output_dir:
+                    output_dir = Path(self.config.output_dir)
+                elif self.config.rollouts_dir:
+                    output_dir = Path(self.config.rollouts_dir).parent
+                else:
+                    output_dir = Path(self.config.workspace_dir)
+                invariants_file = output_dir / "invariants.json"
+                invariants_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(invariants_file, "w") as f:
+                    json.dump(invariants_data, f, indent=2, default=str)
+                self.logger.info(f"Invariants saved to {invariants_file}")
             else:
                 self.logger.warning(
                     f"Invariant analysis failed: {inv_output.error_message}"
@@ -1048,6 +1075,7 @@ class Dispatcher:
                 master_context=self.master_context,
                 dependency_graph=self.dependency_graph,
                 model_name=self.config.verifier_model,
+                fallback_model=self.config.fallback_model,
                 use_openai=self.config.use_openai,
                 max_turns=self.config.verifier_max_turns,
             )
@@ -1438,9 +1466,6 @@ class Dispatcher:
         Args:
             output_path: Path to the output JSON file
         """
-        import json
-        from pathlib import Path
-
         # Build summary
         summary = {
             "total_campaigns": len(self.campaigns),
@@ -1455,6 +1480,8 @@ class Dispatcher:
             "total_verdicts": len(self.verdicts),
             "verified_exploits": len([v for v in self.verdicts if v.is_valid]),
             "rejected_exploits": len([v for v in self.verdicts if not v.is_valid]),
+            "total_tokens": self.total_tokens,
+            "total_cost_usd": self.total_cost,
         }
 
         # Serialize campaigns
@@ -1491,4 +1518,11 @@ class Dispatcher:
         with open(output_file, "w") as f:
             json.dump(report, f, indent=2, default=str)
 
+        # Save invariants to a separate file
+        invariants_data = [inv.model_dump() for inv in self.invariants.values()]
+        invariants_file = output_file.parent / "invariants.json"
+        with open(invariants_file, "w") as f:
+            json.dump(invariants_data, f, indent=2, default=str)
+
         self.logger.info(f"Results exported to {output_path}")
+        self.logger.info(f"Invariants exported to {invariants_file} ({len(invariants_data)} invariants)")

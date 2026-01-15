@@ -23,6 +23,8 @@ from kai.agents.tools.tools import (
 from kai.agents.tools.state_tools import (
     write_and_compile,
     run_test,
+    run_script,
+    http_request,
 )
 
 
@@ -30,6 +32,8 @@ __all__ = [
     "register_exploit",
     "write_and_compile",
     "run_test",
+    "run_script",
+    "http_request",
     "dependency_graph_snippet",
     "dependency_graph_callees",
     "dependency_graph_neighbors",

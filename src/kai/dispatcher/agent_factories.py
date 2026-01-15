@@ -374,7 +374,10 @@ def create_gamified_agent(
 
     # Set up toolcalling prompt
     cluster_id = mission.campaign_id or "default"
-    agent.set_toolcalling_prompt(cluster_id=cluster_id)
+    agent.set_toolcalling_prompt(
+        cluster_id=cluster_id,
+        extra_instructions=extra_instructions or "",
+    )
 
     return agent
 

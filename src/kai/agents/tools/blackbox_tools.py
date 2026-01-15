@@ -21,6 +21,7 @@ from kai.agents.tools.tools import (
     dependency_graph_public_entrypoints,
     http_request,
     list_files,
+    run_script,
 )
 from kai.schemas import Observation
 
@@ -225,6 +226,7 @@ __all__ = [
     "dependency_graph_protocol_entrypoints",
     "write_and_compile",
     "run_test",
+    "run_script",
     "add_observation",
     "http_request",
 ]

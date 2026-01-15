@@ -10,6 +10,7 @@ from kai.agents.tools.tools import (
     list_files,
     update_file,
     create_file,
+    run_script,
     _get_current_agent as _get_agent,
 )
 from kai.schemas import MasterContext
@@ -25,6 +26,7 @@ __all__ = [
     "install_dependencies",
     "write_and_compile",
     "run_test",
+    "run_script",
     "register_master_context",
 ]
 

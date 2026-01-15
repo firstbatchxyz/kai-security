@@ -123,3 +123,6 @@ explore → hypothesis → register_exploit(poc_code=...) → fix compile errors
 - Use `register_exploit` with poc_code - it compiles automatically and gives feedback.
 - If compilation fails, fix the errors and call `register_exploit` again.
 - After successful registration, run `run_test` to verify the exploit works.
+
+## Additional Instructions
+{{extra_instructions}}

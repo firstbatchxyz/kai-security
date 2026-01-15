@@ -21,6 +21,7 @@ from kai.agents.tools.tools import (
 from kai.agents.tools.state_tools import (
     write_and_compile,
     run_test,
+    run_script,
 )
 
 
@@ -160,5 +161,6 @@ __all__ = [
     "dependency_graph_neighbors",
     "write_and_compile",
     "run_test",
+    "run_script",
     "submit_verdict",
 ]

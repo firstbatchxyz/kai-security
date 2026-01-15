@@ -25,7 +25,7 @@ from kai.agents.tools.tools import (
     write_and_compile,
     _get_adapter,
 )
-from kai.agents.tools.state_tools import run_test
+from kai.agents.tools.state_tools import run_test, run_script
 
 
 def _ensure_in_scope(abs_path: str) -> Optional[str]:
@@ -557,6 +557,7 @@ __all__ = [
     "dependency_graph_snippet",
     "write_and_compile",
     "run_test",
+    "run_script",
     "generate_canonical_diff",
     "register_fix",
 ]

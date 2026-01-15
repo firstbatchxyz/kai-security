@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from kai.agents.tools.tools import read_file, list_files, _get_current_agent
+from kai.agents.tools.tools import read_file, list_files, _get_current_agent, run_script
 from kai.agents.tools import state_tools
 from kai.schemas import WorkspaceValidationResult
 
@@ -11,6 +11,7 @@ __all__ = [
     "list_files",
     "write_and_compile",
     "run_test",
+    "run_script",
     "register_workspace_validation_result",
 ]
 
@@ -64,6 +65,12 @@ def run_test(
         )
         if isinstance(last_mp, str) and last_mp.strip():
             fw["match_path"] = last_mp.strip()
+
+    # For Python framework, use confcutdir to prevent project conftest.py files
+    # from interfering with the smoke test
+    framework = getattr(agent, "framework", None) if agent else None
+    if framework == "python" and "confcutdir" not in fw:
+        fw["confcutdir"] = "tests/poc"
 
     return state_tools.run_test(
         match_contract=match_contract,

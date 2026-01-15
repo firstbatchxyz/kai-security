@@ -28,6 +28,8 @@ from kai.agents.tools.tools import (
     _get_adapter,
     write_and_compile,  # Centralized in tools.py
     register_exploit,  # Unified exploit registration with auto-compile
+    run_script,  # Standalone script execution for BountyBench-style PoCs
+    http_request,  # HTTP requests for BountyBench-style exploitation
 )
 
 
@@ -175,6 +177,8 @@ __all__ = [
     "dependency_graph_protocol_entrypoints",
     "write_and_compile",
     "run_test",
+    "run_script",
     "patch_file",
     "register_exploit",
+    "http_request",
 ]

@@ -113,12 +113,15 @@ class GamifiedAgent(BaseAgent):
         if execution_id:
             self.execution_id = execution_id
 
-    def set_toolcalling_prompt(self, cluster_id: str = "default"):
+    def set_toolcalling_prompt(
+        self, cluster_id: str = "default", extra_instructions: str = ""
+    ):
         """
         Replace system prompt with the gamified agent template.
 
         Args:
             cluster_id: Identifier for this invariant cluster
+            extra_instructions: Additional instructions for the agent
         """
         try:
             template = TOOLCALLING_PROMPT_PATH.read_text(encoding="utf-8")
@@ -193,6 +196,7 @@ class GamifiedAgent(BaseAgent):
             "{{vars_in_scope}}": vars_text,
             "{{actor_context}}": actor_text,
             "{{system_context}}": system_context,
+            "{{extra_instructions}}": extra_instructions,
         }
 
         prompt = template
