@@ -32,9 +32,10 @@ from .solidity import SolidityAdapter
 from .python import PythonAdapter
 from .javascript import JavaScriptAdapter
 from .c import CAdapter
+from .rust import RustAdapter
 
 # Literal type for structured output validation
-AdapterType = Literal["solidity", "python", "javascript", "c"]
+AdapterType = Literal["solidity", "python", "javascript", "c", "rust"]
 
 # Registry mapping adapter names to classes
 ADAPTER_REGISTRY: dict[str, type[DomainAdapter]] = {
@@ -42,6 +43,7 @@ ADAPTER_REGISTRY: dict[str, type[DomainAdapter]] = {
     "python": PythonAdapter,
     "javascript": JavaScriptAdapter,
     "c": CAdapter,
+    "rust": RustAdapter,
 }
 
 
@@ -67,6 +69,8 @@ def get_adapter(name: str) -> DomainAdapter:
         "js": "javascript",
         "py": "python",
         "sol": "solidity",
+        "rs": "rust",
+        "cargo": "rust",
     }
     name_lower = alias_map.get(name_lower, name_lower)
 
@@ -88,4 +92,5 @@ __all__ = [
     "PythonAdapter",
     "JavaScriptAdapter",
     "CAdapter",
+    "RustAdapter",
 ]

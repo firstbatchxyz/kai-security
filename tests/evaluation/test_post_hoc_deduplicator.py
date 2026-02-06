@@ -4,7 +4,7 @@ Uses real invariants from the Ethena BBP protocol analysis as fixtures.
 Tests the parallel bulk deduplication approach.
 """
 
-import pytest  # type: ignore[import-not-found]
+import pytest
 
 from evaluation.post_hoc_deduplicator import (
     PostHocDeduplicator,

@@ -35,7 +35,7 @@ class TypeScriptBuilder(JavaScriptBuilder):
     def _create_parser(self):
         """Create a tree-sitter parser for TypeScript."""
         try:
-            from tree_sitter_language_pack import get_parser  # type: ignore[import-not-found]
+            from tree_sitter_language_pack import get_parser
 
             return get_parser("typescript")
         except ImportError:

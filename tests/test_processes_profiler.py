@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 
-import pytest  # type: ignore[import-not-found]
+import pytest
 
 from kai.processes.profiler import ProfilerProcess
 from kai.schemas import MasterContext, ProfilerInput

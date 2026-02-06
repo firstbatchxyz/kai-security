@@ -26,8 +26,7 @@ LANGUAGE_FRAMEWORK_MAP: Dict[Language, list[Framework]] = {
 FRAMEWORK_ADAPTER_MAP: Dict[Framework, Optional[str]] = {
     Framework.FOUNDRY: "SolidityAdapter",
     Framework.NODE: None,
-    # Setup-only (no dependency adapter yet)
-    Framework.CARGO: None,
+    Framework.CARGO: "RustAdapter",
     Framework.CMAKE: None,
 }
 

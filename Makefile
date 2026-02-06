@@ -1,7 +1,5 @@
-# Set default target
-.DEFAULT_GOAL := help
-
-# Help command
+# Help command (default)
+.PHONY: help
 help:
 	@echo "Usage: make <target>"
 	@echo ""
@@ -9,6 +7,7 @@ help:
 	@echo "  1. help                - Show this help message"
 	@echo "  2. install             - Install ALL dependencies (uv + Python packages + Foundry)"
 	@echo "  3. run                 - Run all agents (finder → setup → generator)"
+	@echo "  4. test                - Run pytest tests"
 	@echo ""
 	@echo "Agent Execution Targets:"
 	@echo "  4. run-finder-only     - Run only the finder agent"
@@ -31,6 +30,7 @@ help:
 	@echo "For more options, run: uv run run_scaffold.py --help"
 
 # Complete installation: uv, Python dependencies, and Foundry
+.PHONY: install
 install:
 	@bash scripts/install.sh
 	@if [ -f "$$HOME/.foundry/bin/forge" ] && ! command -v forge > /dev/null 2>&1; then \
@@ -43,27 +43,37 @@ install:
 		echo ""; \
 	fi
 
+.PHONY: run
 run:
 	uv run run_scaffold.py
 
+.PHONY: test
+test:
+	uv run pytest -v
+
+.PHONY: typecheck
+typecheck:
+	uv run ty check
+
+.PHONY: run-finder-only run-setup-only run-generator-only run-skip-setup
 run-finder-only:
 	uv run run_scaffold.py --finder-only
-
 run-setup-only:
 	uv run run_scaffold.py --setup-only
-
 run-generator-only:
 	uv run run_scaffold.py --generator-only
-
 run-skip-setup:
 	uv run run_scaffold.py --skip-setup
 
+.PHONY: extract-metrics
 extract-metrics:
 	cd benchmark && uv run extract_metrics.py
 
+.PHONY: analyse-costs
 analyse-costs:
 	cd benchmark && uv run analyse_costs.py
 
+.PHONY: combine-exploits
 combine-exploits:
 	@if [ -z "$(REPO_SLUG)" ]; then \
 		echo "Error: REPO_SLUG is not set"; \
@@ -78,6 +88,7 @@ combine-exploits:
 		uv run combine_exploits.py $(REPO_SLUG); \
 	fi
 
+.PHONY: extract-verified
 extract-verified:
 	@if [ -n "$(REPO_SLUG)" ]; then \
 		uv run scripts/extract_verified_exploits.py $(REPO_SLUG); \
@@ -85,6 +96,7 @@ extract-verified:
 		uv run scripts/extract_verified_exploits.py; \
 	fi
 
+.PHONY: generator-report
 generator-report:
 	@if [ -n "$(REPO_SLUG)" ]; then \
 		uv run scripts/generate_generator_report.py $(REPO_SLUG); \

@@ -96,9 +96,10 @@ class TreeSitterBuilder(BaseBuilder):
         """
         try:
             # Try tree-sitter-language-pack (preferred)
-            from tree_sitter_language_pack import get_parser  # type: ignore[import-not-found]
+            from tree_sitter_language_pack import get_parser
 
-            return get_parser(self.language)
+            # ignore type here, as `language` is dynamic but get_parser expects a literal
+            return get_parser(self.language)  # type: ignore
         except ImportError:
             pass
 
@@ -129,6 +130,13 @@ class TreeSitterBuilder(BaseBuilder):
                     import tree_sitter_c
 
                     lang_module = tree_sitter_c
+                except ImportError:
+                    pass
+            elif self.language == "rust":
+                try:
+                    import tree_sitter_rust
+
+                    lang_module = tree_sitter_rust
                 except ImportError:
                     pass
 

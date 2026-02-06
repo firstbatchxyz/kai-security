@@ -3,7 +3,7 @@
 Uses real invariants and observations from the Ethena BBP protocol analysis.
 """
 
-import pytest  # type: ignore[import-not-found]
+import pytest
 
 from evaluation.evaluator import BlackboxEvaluator
 from kai.schemas import Invariant, InvariantType

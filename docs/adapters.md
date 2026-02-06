@@ -2,12 +2,12 @@
 
 Kai uses a three-layer adapter pattern to support multiple smart contract frameworks and programming languages. Each adapter type handles a different concern:
 
-| Adapter Type | Location | Purpose |
-|-------------|----------|---------|
-| **Tool Adapter** | `kai/utils/tool_adapters/` | Compile code, run tests, parse outputs |
-| **Workspace Adapter** | `kai/utils/workspace/` | Provision agent workspaces with correct project structure |
-| **Domain Adapter** | `kai/utils/dependency/adapters/` | Semantic understanding (entrypoints, state vars, access control) |
-| **Builder** | `kai/utils/dependency/builders/` | Parse source code into dependency graphs (tree-sitter based) |
+| Adapter Type          | Location                         | Purpose                                                          |
+| --------------------- | -------------------------------- | ---------------------------------------------------------------- |
+| **Tool Adapter**      | `kai/utils/tool_adapters/`       | Compile code, run tests, parse outputs                           |
+| **Workspace Adapter** | `kai/utils/workspace/`           | Provision agent workspaces with correct project structure        |
+| **Domain Adapter**    | `kai/utils/dependency/adapters/` | Semantic understanding (entrypoints, state vars, access control) |
+| **Builder**           | `kai/utils/dependency/builders/` | Parse source code into dependency graphs (tree-sitter based)     |
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -24,14 +24,14 @@ Kai uses a three-layer adapter pattern to support multiple smart contract framew
 
 ## Supported Frameworks & Languages
 
-| Framework | Language | Tool Adapter | Workspace Adapter | Domain Adapter | Builder |
-|-----------|----------|--------------|-------------------|----------------|---------|
-| **Foundry** | Solidity | ✅ | ✅ | ✅ (Solidity) | ✅ (Slither) |
-| **Cargo** | Rust | ✅ | ✅ | ❌ | ❌ |
-| **CMake** | C/C++ | ✅ | ✅ | ❌ | ❌ |
-| **Python** | Python | ✅ (uv) | ✅ | ✅ | ✅ (tree-sitter) |
-| **JavaScript** | JavaScript | ✅ | ✅ | ✅ | ✅ (tree-sitter) |
-| **C** | C | ✅ | ✅ | ✅ | ✅ (tree-sitter) |
+| Framework      | Language   | Tool Adapter | Workspace Adapter | Domain Adapter | Builder          |
+| -------------- | ---------- | ------------ | ----------------- | -------------- | ---------------- |
+| **Foundry**    | Solidity   | ✅           | ✅                | ✅ (Solidity)  | ✅ (Slither)     |
+| **Cargo**      | Rust       | ✅           | ✅                | ❌             | ❌               |
+| **CMake**      | C/C++      | ✅           | ✅                | ❌             | ❌               |
+| **Python**     | Python     | ✅ (uv)      | ✅                | ✅             | ✅ (tree-sitter) |
+| **JavaScript** | JavaScript | ✅           | ✅                | ✅             | ✅ (tree-sitter) |
+| **C**          | C          | ✅           | ✅                | ✅             | ✅ (tree-sitter) |
 
 ---
 
@@ -65,14 +65,14 @@ class ToolAdapter(ABC):
 
 ### Current Implementations
 
-| Adapter | File | Test Runner | Key Features |
-|---------|------|-------------|--------------|
-| `FoundryToolAdapter` | `foundry.py` | `forge test` | Solidity, fuzz seeds, gas tracking |
-| `PythonToolAdapter` | `python.py` | `uv run pytest` | uv integration, venv fallback |
-| `JavaScriptToolAdapter` | `javascript.py` | `npm/yarn/pnpm test` | Package manager detection |
-| `CToolAdapter` | `c.py` | `make test` | CMake/Make/Meson detection |
-| `CargoToolAdapter` | `cargo.py` | `cargo test` | Rust, feature flags |
-| `CMakeToolAdapter` | `cmake.py` | `ctest` | C/C++, build dir management |
+| Adapter                 | File            | Test Runner          | Key Features                       |
+| ----------------------- | --------------- | -------------------- | ---------------------------------- |
+| `FoundryToolAdapter`    | `foundry.py`    | `forge test`         | Solidity, fuzz seeds, gas tracking |
+| `PythonToolAdapter`     | `python.py`     | `uv run pytest`      | uv integration, venv fallback      |
+| `JavaScriptToolAdapter` | `javascript.py` | `npm/yarn/pnpm test` | Package manager detection          |
+| `CToolAdapter`          | `c.py`          | `make test`          | CMake/Make/Meson detection         |
+| `CargoToolAdapter`      | `cargo.py`      | `cargo test`         | Rust, feature flags                |
+| `CMakeToolAdapter`      | `cmake.py`      | `ctest`              | C/C++, build dir management        |
 
 ### Python Tool Adapter (uv Integration)
 
@@ -177,14 +177,14 @@ class WorkspaceAdapter(ABC):
 
 ### Current Implementations
 
-| Adapter | Framework | Key Directories |
-|---------|-----------|-----------------|
-| `FoundryWorkspaceAdapter` | Foundry | `out/`, `cache/`, `lib/` |
-| `PythonWorkspaceAdapter` | Python | `.venv/`, `__pycache__/`, `.pytest_cache/` |
-| `JavaScriptWorkspaceAdapter` | JavaScript | `node_modules/`, `dist/`, `.cache/` |
-| `CWorkspaceAdapter` | C | `build/`, `cmake-build-*/`, `out/` |
-| `CargoWorkspaceAdapter` | Cargo | `target/` |
-| `CMakeWorkspaceAdapter` | CMake | `build/`, `cmake-build-*` |
+| Adapter                      | Framework  | Key Directories                            |
+| ---------------------------- | ---------- | ------------------------------------------ |
+| `FoundryWorkspaceAdapter`    | Foundry    | `out/`, `cache/`, `lib/`                   |
+| `PythonWorkspaceAdapter`     | Python     | `.venv/`, `__pycache__/`, `.pytest_cache/` |
+| `JavaScriptWorkspaceAdapter` | JavaScript | `node_modules/`, `dist/`, `.cache/`        |
+| `CWorkspaceAdapter`          | C          | `build/`, `cmake-build-*/`, `out/`         |
+| `CargoWorkspaceAdapter`      | Cargo      | `target/`                                  |
+| `CMakeWorkspaceAdapter`      | CMake      | `build/`, `cmake-build-*`                  |
 
 ---
 
@@ -203,7 +203,7 @@ class DomainAdapter(ABC):
     def name(self) -> str: ...
 
     def get_domain_mapping(self) -> Dict[str, str]:
-        """Map generic NodeKinds to domain terms (CONTAINER → 'Contract')."""
+        """Map generic domain terms to NodeKind's ('Contract' -> CONTAINER)."""
         ...
 
     def is_public_entrypoint(self, node: Node) -> bool:
@@ -224,12 +224,12 @@ class DomainAdapter(ABC):
 
 ### Current Implementations
 
-| Adapter | Language | Library Detection | Entrypoint Detection |
-|---------|----------|-------------------|---------------------|
-| `SolidityAdapter` | Solidity | `lib/`, `node_modules/`, `forge-std/` | `public`/`external` functions |
-| `PythonAdapter` | Python | `site-packages/`, `venv/` | Public functions (no `_` prefix) |
-| `JavaScriptAdapter` | JavaScript | `node_modules/` | `export` functions |
-| `CAdapter` | C | `/usr/include/`, `/usr/local/include/` | Non-static functions |
+| Adapter             | Language   | Library Detection                      | Entrypoint Detection             |
+| ------------------- | ---------- | -------------------------------------- | -------------------------------- |
+| `SolidityAdapter`   | Solidity   | `lib/`, `node_modules/`, `forge-std/`  | `public`/`external` functions    |
+| `PythonAdapter`     | Python     | `site-packages/`, `venv/`              | Public functions (no `_` prefix) |
+| `JavaScriptAdapter` | JavaScript | `node_modules/`                        | `export` functions               |
+| `CAdapter`          | C          | `/usr/include/`, `/usr/local/include/` | Non-static functions             |
 
 ### C Adapter Special Features
 
@@ -271,12 +271,12 @@ class TreeSitterBuilder(BaseBuilder):
 
 ### Current Implementations
 
-| Builder | Language | Extensions | Extracts |
-|---------|----------|------------|----------|
-| `SolidityBuilder` | Solidity | `.sol` | Contracts, functions, state vars (via Slither) |
-| `PythonBuilder` | Python | `.py` | Classes, functions, methods, globals |
-| `JavaScriptBuilder` | JavaScript | `.js`, `.ts` | Classes, functions, arrow functions |
-| `CBuilder` | C | `.c`, `.h` | Structs, enums, functions, globals |
+| Builder             | Language   | Extensions   | Extracts                                       |
+| ------------------- | ---------- | ------------ | ---------------------------------------------- |
+| `SolidityBuilder`   | Solidity   | `.sol`       | Contracts, functions, state vars (via Slither) |
+| `PythonBuilder`     | Python     | `.py`        | Classes, functions, methods, globals           |
+| `JavaScriptBuilder` | JavaScript | `.js`, `.ts` | Classes, functions, arrow functions            |
+| `CBuilder`          | C          | `.c`, `.h`   | Structs, enums, functions, globals             |
 
 ### NodeKind Mapping
 
@@ -598,6 +598,7 @@ def test_builder():
 ```
 
 Run all adapter tests:
+
 ```bash
 uv run --with pytest pytest tests/test_tool_adapters.py tests/test_workspace_adapters.py tests/test_domain_adapters.py tests/test_builders.py -v
 ```

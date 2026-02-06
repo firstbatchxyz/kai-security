@@ -2,7 +2,7 @@ import json
 import shutil
 from pathlib import Path
 
-import pytest  # type: ignore[import-not-found]
+import pytest
 
 from kai.agents import settings
 from kai.agents.agent_types.fixer_agent import FixerAgent

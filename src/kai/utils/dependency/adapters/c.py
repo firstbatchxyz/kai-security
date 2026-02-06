@@ -7,9 +7,9 @@ Provides domain knowledge for C security analysis:
 - Trust level patterns
 """
 
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
-from .base import DomainAdapter
+from .base import DomainAdapter, LensDefinition
 from ..models import Node, NodeKind
 
 if TYPE_CHECKING:
@@ -290,4 +290,93 @@ class CAdapter(DomainAdapter):
             "sprintf": "snprintf",
             "gets": "fgets",
             "scanf": "fgets + sscanf with limits",
+        }
+
+    # FIXME: this was added so that tests pass
+    def get_lens_definitions(self) -> List[LensDefinition]:
+        """C-specific lens definitions for security analysis."""
+        return [
+            LensDefinition(
+                name="memory",
+                description="Buffer overflows, use-after-free, double-free, format strings",
+                invariant_types=["ACCESS", "OTHER"],
+                prompt_template="""
+## MEMORY LENS - C
+
+Focus on memory safety vulnerabilities.
+
+### Buffer Overflows
+For EACH function using string/memory operations:
+- Check for unsafe functions (strcpy, strcat, sprintf, gets)
+- Verify buffer sizes in memcpy/memmove
+- Check for off-by-one errors
+- Generate ACCESS invariant: "Buffer X has bounds checking"
+
+### Use-After-Free / Double-Free
+For EACH free() call:
+- Verify pointer is not used after free
+- Check for double-free paths
+- Verify pointer is set to NULL after free
+
+### Format String Vulnerabilities
+For EACH printf-family call:
+- Verify format string is not user-controlled
+- Check for missing format specifiers
+""",
+                checklist=[
+                    "No unsafe string functions with unchecked bounds",
+                    "No use-after-free patterns",
+                    "No user-controlled format strings",
+                    "Buffer sizes validated before copy",
+                ],
+            ),
+            LensDefinition(
+                name="input_validation",
+                description="Integer overflow, null pointer, input sanitization",
+                invariant_types=["VALUE_FLOW", "OTHER"],
+                prompt_template="""
+## INPUT VALIDATION LENS - C
+
+Focus on input validation and integer safety.
+
+### Integer Overflow/Underflow
+For EACH arithmetic operation on external input:
+- Check for overflow in size calculations
+- Verify signed/unsigned conversions
+- Check for integer truncation
+
+### Null Pointer Dereference
+For EACH pointer parameter:
+- Verify null check before dereference
+- Check for null returns from malloc/calloc
+
+### Command Injection
+For EACH system()/popen()/exec() call:
+- Verify input is sanitized
+- Check for shell metacharacter filtering
+""",
+                checklist=[
+                    "Arithmetic on sizes checked for overflow",
+                    "Pointers checked for NULL before use",
+                    "External input sanitized before system calls",
+                ],
+            ),
+        ]
+
+    # FIXME: this was added so that tests pass
+    def get_function_metadata_extractors(self) -> Dict[str, Callable]:
+        """C-specific metadata extractors."""
+
+        def extract_is_static(node: Node, graph: "DependencyGraph") -> bool:
+            return node.meta.get("is_static", False)
+
+        def extract_calls_dangerous(node: Node, graph: "DependencyGraph") -> bool:
+            """Check if function calls dangerous C functions."""
+            dangerous = set(self.get_dangerous_functions())
+            calls = node.meta.get("calls", [])
+            return any(c in dangerous for c in calls if isinstance(c, str))
+
+        return {
+            "is_static": extract_is_static,
+            "calls_dangerous": extract_calls_dangerous,
         }

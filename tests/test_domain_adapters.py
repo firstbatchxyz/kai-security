@@ -4,7 +4,7 @@ Tests for domain adapters (Python, JavaScript, C).
 Tests the DomainAdapter interface implementations for each language.
 """
 
-import pytest  # type: ignore[import-not-found]
+import pytest
 
 from kai.utils.dependency.adapters import (
     get_adapter,

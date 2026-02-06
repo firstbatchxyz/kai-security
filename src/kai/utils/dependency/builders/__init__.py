@@ -40,6 +40,7 @@ from .python import PythonBuilder
 from .javascript import JavaScriptBuilder
 from .typescript import TypeScriptBuilder
 from .c import CBuilder
+from .rust import RustBuilder
 from ..graph import DependencyGraph
 
 __all__ = [
@@ -50,6 +51,7 @@ __all__ = [
     "JavaScriptBuilder",
     "TypeScriptBuilder",
     "CBuilder",
+    "RustBuilder",
     "build_from_slither",
     "get_builder",
 ]
@@ -68,6 +70,8 @@ def get_builder(language: str) -> BaseBuilder:
         "typescript": TypeScriptBuilder,
         "ts": TypeScriptBuilder,
         "c": CBuilder,
+        "rust": RustBuilder,
+        "rs": RustBuilder,
     }
 
     builder_cls = builders.get(language.lower())
