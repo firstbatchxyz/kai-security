@@ -8,6 +8,8 @@ import requests
 from kai.agents.settings import (
     OPENROUTER_API_KEY,
     OPENROUTER_BASE_URL,
+    OPENROUTER_APP_URL,
+    OPENROUTER_APP_TITLE,
     MAIN_DEFAULT_MODEL,
     OPENAI_API_KEY,
     TOOL_OUTPUT_MAX_LENGTH,
@@ -17,6 +19,13 @@ from kai.schemas import ChatMessage, Role
 
 # Cache for model pricing to avoid repeated API calls
 _pricing_cache: Dict[str, Dict[str, float]] = {}
+
+# OpenRouter app attribution headers
+# See: https://openrouter.ai/docs/app-attribution
+_OPENROUTER_HEADERS = {
+    "HTTP-Referer": OPENROUTER_APP_URL,
+    "X-Title": OPENROUTER_APP_TITLE,
+}
 
 
 def create_openai_client(use_openai: bool = False) -> AsyncOpenAI:
@@ -29,6 +38,7 @@ def create_openai_client(use_openai: bool = False) -> AsyncOpenAI:
         return AsyncOpenAI(
             api_key=OPENROUTER_API_KEY,
             base_url=OPENROUTER_BASE_URL,
+            default_headers=_OPENROUTER_HEADERS,
         )
 
 
@@ -64,7 +74,7 @@ def get_model_pricing(model_name: str, use_openai: bool = False) -> Dict[str, fl
     try:
         response = requests.get(
             "https://openrouter.ai/api/v1/models",
-            headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}"},
+            headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}", **_OPENROUTER_HEADERS},
             timeout=5,
         )
         if response.status_code == 200:
@@ -113,7 +123,7 @@ async def async_get_model_pricing(
         async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.get(
                 "https://openrouter.ai/api/v1/models",
-                headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}"},
+                headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}", **_OPENROUTER_HEADERS},
             )
             if response.status_code == 200:
                 models = response.json().get("data", [])

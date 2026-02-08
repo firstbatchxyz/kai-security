@@ -40,6 +40,8 @@ PRE_INSTALL_PACKAGES: list[str] = ["pytest", "requests"]
 # OpenRouter
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_APP_URL = os.getenv("OPENROUTER_APP_URL", "https://kai.dria.co")
+OPENROUTER_APP_TITLE = os.getenv("OPENROUTER_APP_TITLE", "Kai")
 
 # OpenAI settings
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
