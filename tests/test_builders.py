@@ -12,6 +12,7 @@ from kai.utils.dependency.builders import (
     PythonBuilder,
     JavaScriptBuilder,
     CBuilder,
+    RustBuilder,
 )
 from kai.utils.dependency.models import NodeKind
 
@@ -50,6 +51,17 @@ def _has_tree_sitter_c() -> bool:
     return False
 
 
+def _has_tree_sitter_rust() -> bool:
+    """Check if tree-sitter-rust is installed."""
+    import importlib.util
+
+    if importlib.util.find_spec("tree_sitter_rust") is not None:
+        return True
+    if importlib.util.find_spec("tree_sitter_languages") is not None:
+        return True
+    return False
+
+
 class TestBuilderRegistry:
     """Tests for the builder registry."""
 
@@ -77,6 +89,16 @@ class TestBuilderRegistry:
         """Should return CBuilder for c."""
         builder = get_builder("c")
         assert isinstance(builder, CBuilder)
+
+    def test_get_builder_rust(self):
+        """Should return RustBuilder for rust."""
+        builder = get_builder("rust")
+        assert isinstance(builder, RustBuilder)
+
+    def test_get_builder_rust_alias(self):
+        """Should return RustBuilder for rs alias."""
+        builder = get_builder("rs")
+        assert isinstance(builder, RustBuilder)
 
     def test_get_builder_invalid(self):
         """Should raise ValueError for unknown builder."""
@@ -374,10 +396,182 @@ static int helper(int x) {
         assert "global_counter" in var_names
 
 
+class TestRustBuilder:
+    """Tests for RustBuilder."""
+
+    @pytest.fixture
+    def builder(self):
+        return RustBuilder()
+
+    @pytest.fixture
+    def rust_project(self, tmp_path: Path):
+        """Create a minimal Rust project."""
+        (tmp_path / "lib.rs").write_text("""
+use std::collections::HashMap;
+use crate::utils::helper;
+
+pub struct Vault {
+    balance: u64,
+    owner: String,
+}
+
+enum Status {
+    Active,
+    Paused,
+    Closed,
+}
+
+static mut COUNTER: u64 = 0;
+
+const MAX_SIZE: usize = 1024;
+
+impl Vault {
+    pub fn new(owner: String) -> Self {
+        Self { balance: 0, owner }
+    }
+
+    pub fn deposit(&mut self, amount: u64) {
+        self.balance += amount;
+    }
+
+    fn internal_check(&self) -> bool {
+        self.balance > 0
+    }
+}
+
+pub fn process_instruction(data: &[u8]) -> Result<(), String> {
+    Ok(())
+}
+
+fn helper_function() {
+    println!("hello");
+}
+""")
+        (tmp_path / "utils.rs").write_text("""
+pub trait Validator {
+    fn validate(&self) -> bool;
+}
+
+type Balance = u64;
+""")
+        return tmp_path
+
+    def test_language_property(self, builder: RustBuilder):
+        """Should return rust as language."""
+        assert builder.language == "rust"
+
+    def test_file_extensions(self, builder: RustBuilder):
+        """Should return .rs extension."""
+        assert ".rs" in builder.file_extensions
+
+    @pytest.mark.skipif(
+        not _has_tree_sitter_rust(), reason="tree-sitter-rust not installed"
+    )
+    def test_build_extracts_functions(self, builder: RustBuilder, rust_project: Path):
+        """Should extract function definitions."""
+        graph = builder.build(rust_project)
+
+        units = list(graph.nodes(NodeKind.UNIT))
+        unit_names = [graph.node(u).name for u in units]
+
+        assert "process_instruction" in unit_names
+        assert "helper_function" in unit_names
+
+    @pytest.mark.skipif(
+        not _has_tree_sitter_rust(), reason="tree-sitter-rust not installed"
+    )
+    def test_build_extracts_structs(self, builder: RustBuilder, rust_project: Path):
+        """Should extract struct definitions."""
+        graph = builder.build(rust_project)
+
+        containers = list(graph.nodes(NodeKind.CONTAINER))
+        container_names = [graph.node(c).name for c in containers]
+
+        assert "Vault" in container_names
+
+    @pytest.mark.skipif(
+        not _has_tree_sitter_rust(), reason="tree-sitter-rust not installed"
+    )
+    def test_build_extracts_impl_methods(
+        self, builder: RustBuilder, rust_project: Path
+    ):
+        """Should extract methods from impl blocks."""
+        graph = builder.build(rust_project)
+
+        units = list(graph.nodes(NodeKind.UNIT))
+        unit_names = [graph.node(u).name for u in units]
+
+        assert "new" in unit_names
+        assert "deposit" in unit_names
+        assert "internal_check" in unit_names
+
+    @pytest.mark.skipif(
+        not _has_tree_sitter_rust(), reason="tree-sitter-rust not installed"
+    )
+    def test_build_extracts_enums(self, builder: RustBuilder, rust_project: Path):
+        """Should extract enum definitions."""
+        graph = builder.build(rust_project)
+
+        type_defs = list(graph.nodes(NodeKind.TYPE_DEF))
+        type_def_names = [graph.node(t).name for t in type_defs]
+
+        assert "Status" in type_def_names
+
+    @pytest.mark.skipif(
+        not _has_tree_sitter_rust(), reason="tree-sitter-rust not installed"
+    )
+    def test_build_extracts_static_and_const(
+        self, builder: RustBuilder, rust_project: Path
+    ):
+        """Should extract static and const variables."""
+        graph = builder.build(rust_project)
+
+        variables = list(graph.nodes(NodeKind.VARIABLE))
+        var_names = [graph.node(v).name for v in variables]
+
+        assert "COUNTER" in var_names
+        assert "MAX_SIZE" in var_names
+
+    @pytest.mark.skipif(
+        not _has_tree_sitter_rust(), reason="tree-sitter-rust not installed"
+    )
+    def test_build_extracts_traits(self, builder: RustBuilder, rust_project: Path):
+        """Should extract trait definitions."""
+        graph = builder.build(rust_project)
+
+        interfaces = list(graph.nodes(NodeKind.INTERFACE))
+        interface_names = [graph.node(i).name for i in interfaces]
+
+        assert "Validator" in interface_names
+
+    @pytest.mark.skipif(
+        not _has_tree_sitter_rust(), reason="tree-sitter-rust not installed"
+    )
+    def test_build_extracts_use_imports(
+        self, builder: RustBuilder, rust_project: Path
+    ):
+        """Should extract use declarations as IMPORTS edges."""
+        from kai.utils.dependency.models import EdgeKind
+
+        graph = builder.build(rust_project)
+
+        # edges() returns (src, kind, dst, meta) tuples
+        import_targets = [
+            dst for _, kind, dst, _ in graph.edges() if kind == EdgeKind.IMPORTS
+        ]
+
+        # Should have imports from std::collections::HashMap and crate::utils::helper
+        has_hashmap = any("HashMap" in t for t in import_targets)
+        has_helper = any("helper" in t for t in import_targets)
+        assert has_hashmap or has_helper, (
+            f"Expected use imports, got targets: {import_targets}"
+        )
+
+
 class TestBuilderInterface:
     """Tests for Builder interface compliance."""
 
-    @pytest.mark.parametrize("language", ["python", "javascript", "c"])
+    @pytest.mark.parametrize("language", ["python", "javascript", "c", "rust"])
     def test_builder_implements_interface(self, language: str):
         """All builders should implement the BaseBuilder interface."""
         builder = get_builder(language)
@@ -390,7 +584,7 @@ class TestBuilderInterface:
         assert hasattr(builder, "build")
         assert callable(builder.build)
 
-    @pytest.mark.parametrize("language", ["python", "javascript", "c"])
+    @pytest.mark.parametrize("language", ["python", "javascript", "c", "rust"])
     def test_builder_returns_correct_types(self, language: str, tmp_path: Path):
         """All builders should return correct types."""
         builder = get_builder(language)
