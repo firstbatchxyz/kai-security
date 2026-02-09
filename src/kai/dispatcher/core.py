@@ -659,7 +659,12 @@ class Dispatcher:
                 f"Boot complete: {len(self.invariants)} invariants, planner ready"
             )
 
-        except (EnvironmentSetupError, StaticAnalysisError, WorkspaceValidationError, ActorAnalysisError):
+        except (
+            EnvironmentSetupError,
+            StaticAnalysisError,
+            WorkspaceValidationError,
+            ActorAnalysisError,
+        ):
             # Re-raise our custom exceptions as-is
             raise
         except Exception as e:
@@ -694,13 +699,14 @@ class Dispatcher:
         if fw & {"javascript", "js", "node", "npm", "yarn", "pnpm"}:
             return "javascript"
 
+        # Rust
+        if fw & {"cargo", "rust"}:
+            return "rust"
+
         # C/C++
+        # NOTE: `make` appears in many frameworks, so be careful with false-positive on that
         if fw & {"c", "cmake", "make", "gcc"}:
             return "c"
-
-        # Rust only: we do not support a Rust builder yet
-        if fw and fw <= {"cargo", "rust"}:
-            return "__unsupported_rust__"
 
         return None
 
@@ -728,11 +734,6 @@ class Dispatcher:
             inferred = self._infer_adapter_from_framework(
                 self.master_context.frameworks
             )
-            if inferred == "__unsupported_rust__":
-                self.logger.error(
-                    "Unsupported project: only Cargo/Rust detected. Rust adapter is not available yet."
-                )
-                return None
             if inferred and inferred != "solidity":
                 self.logger.info(
                     f"Adapter inferred from frameworks {self.master_context.frameworks}: {inferred}"
@@ -750,6 +751,20 @@ class Dispatcher:
             )
 
         adapter = adapter.lower()
+
+        # If adapter is "c", check if the project is actually Rust.
+        # "make" in frameworks can cause false-positive C detection for Rust projects.
+        if adapter == "c":
+            master_root_check = Path(self.master_context.root_path).resolve()
+            has_cargo = (master_root_check / "Cargo.toml").exists()
+            if has_cargo:
+                self.logger.info(
+                    "Cargo.toml detected - overriding adapter from 'c' to 'rust'"
+                )
+                adapter = "rust"
+                self.master_context = self.master_context.model_copy(
+                    update={"adapter": "rust"}
+                )
 
         # If adapter is "javascript", check if there are TypeScript files
         # and upgrade to "typescript" adapter to ensure .ts files are parsed
@@ -921,7 +936,9 @@ class Dispatcher:
                 else None
             )
         for mission in missions:
-            self.mission_queue.put_nowait((PRIORITY_BLACKBOX, mission.mission_id, mission))
+            self.mission_queue.put_nowait(
+                (PRIORITY_BLACKBOX, mission.mission_id, mission)
+            )
 
     async def _plan_state_quant_missions(self) -> None:
         """Plan state/quant missions with all invariants (phase 1)."""
@@ -944,7 +961,9 @@ class Dispatcher:
                 else None
             )
         for mission in missions:
-            self.mission_queue.put_nowait((PRIORITY_STATE_QUANT_HTTP, mission.mission_id, mission))
+            self.mission_queue.put_nowait(
+                (PRIORITY_STATE_QUANT_HTTP, mission.mission_id, mission)
+            )
 
     async def _queue_gamified_missions(self) -> None:
         """Queue gamified missions from invariant clusters (phase 2)."""
@@ -967,7 +986,9 @@ class Dispatcher:
                 else None
             )
         for mission in missions:
-            self.mission_queue.put_nowait((PRIORITY_GAMIFIED, mission.mission_id, mission))
+            self.mission_queue.put_nowait(
+                (PRIORITY_GAMIFIED, mission.mission_id, mission)
+            )
 
     async def _queue_http_missions(self) -> None:
         """Queue HTTP exploitation missions (runs alongside state/quant)."""
@@ -989,7 +1010,9 @@ class Dispatcher:
                 else None
             )
         for mission in missions:
-            self.mission_queue.put_nowait((PRIORITY_STATE_QUANT_HTTP, mission.mission_id, mission))
+            self.mission_queue.put_nowait(
+                (PRIORITY_STATE_QUANT_HTTP, mission.mission_id, mission)
+            )
 
     async def _execute_mission(self, mission: Mission) -> None:
         """Execute a single mission with an agent."""
@@ -1695,7 +1718,9 @@ class Dispatcher:
             return
 
         base_id = len(self.completed_missions) + self.mission_queue.qsize()
-        campaign, missions = self._planner.create_missions_for_invariant(invariant, base_id)
+        campaign, missions = self._planner.create_missions_for_invariant(
+            invariant, base_id
+        )
 
         # Save the campaign first
         await self._persist(
@@ -1712,7 +1737,9 @@ class Dispatcher:
             )
 
         for mission in missions:
-            self.mission_queue.put_nowait((PRIORITY_STATE_QUANT_HTTP, mission.mission_id, mission))
+            self.mission_queue.put_nowait(
+                (PRIORITY_STATE_QUANT_HTTP, mission.mission_id, mission)
+            )
 
     def _provision_workspace(self, mission: Mission) -> str:
         if not self.master_context:

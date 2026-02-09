@@ -68,6 +68,7 @@ class WorkspaceValidationProcess(
                     "typescript": "javascript",  # TypeScript uses JS tooling
                     "python": "python",
                     "c": "c",
+                    "rust": "cargo",
                 }
                 mapped = adapter_map.get(adapter_lower, adapter_lower)
                 # Don't trust "solidity" default if there's no foundry.toml

@@ -36,7 +36,7 @@ class MasterContext(BaseModel):
     build_script: str | None = None
     test_script_path: str | None = None
     test_script: str | None = None
-    adapter: str | None = None  # One of: "solidity", "python", "javascript", "typescript", "c"
+    adapter: str | None = None  # One of: "solidity", "python", "javascript", "typescript", "c", "rust"
 ```
 
 **IMPORTANT**: The `adapter` field tells downstream agents which dependency analysis builder to use.
@@ -45,6 +45,7 @@ class MasterContext(BaseModel):
 - For JavaScript projects (package.json): `adapter: "javascript"`
 - For TypeScript projects (tsconfig.json): `adapter: "typescript"`
 - For C/CMake projects: `adapter: "c"`
+- For Rust/Cargo projects (Cargo.toml): `adapter: "rust"`
 
 If you don't set the adapter, it defaults to "solidity" which will cause errors for non-Solidity projects!
 
