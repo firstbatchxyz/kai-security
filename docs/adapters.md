@@ -24,14 +24,14 @@ Kai uses a three-layer adapter pattern to support multiple smart contract framew
 
 ## Supported Frameworks & Languages
 
-| Framework      | Language   | Tool Adapter | Workspace Adapter | Domain Adapter | Builder          |
-| -------------- | ---------- | ------------ | ----------------- | -------------- | ---------------- |
-| **Foundry**    | Solidity   | ✅           | ✅                | ✅ (Solidity)  | ✅ (Slither)     |
-| **Cargo**      | Rust       | ✅           | ✅                | ❌             | ❌               |
-| **CMake**      | C/C++      | ✅           | ✅                | ❌             | ❌               |
-| **Python**     | Python     | ✅ (uv)      | ✅                | ✅             | ✅ (tree-sitter) |
-| **JavaScript** | JavaScript | ✅           | ✅                | ✅             | ✅ (tree-sitter) |
-| **C**          | C          | ✅           | ✅                | ✅             | ✅ (tree-sitter) |
+| Framework      | Language   | Tool Adapter | Workspace Adapter | Domain Adapter   | Builder          |
+| -------------- | ---------- | ------------ | ----------------- | ---------------- | ---------------- |
+| **Foundry**    | Solidity   | ✅           | ✅                | ✅ (Solidity)    | ✅ (Slither)     |
+| **Cargo**      | Rust       | ✅           | ✅                | ✅ (RustAdapter) | ✅ (RustBuilder) |
+| **CMake**      | C/C++      | ✅           | ✅                | ❌               | ❌               |
+| **Python**     | Python     | ✅ (uv)      | ✅                | ✅               | ✅ (tree-sitter) |
+| **JavaScript** | JavaScript | ✅           | ✅                | ✅               | ✅ (tree-sitter) |
+| **C**          | C          | ✅           | ✅                | ✅               | ✅ (tree-sitter) |
 
 ---
 

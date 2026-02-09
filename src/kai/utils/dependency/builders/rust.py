@@ -61,12 +61,35 @@ class RustBuilder(TreeSitterBuilder):
         nodes: List[Node] = []
         edges: List[Tuple[str, str, EdgeKind]] = []
 
-        file_id = str(file_path)
+        file_id = self._make_file_id(file_path)
         root = tree.root_node
 
         self._extract_source_file(root, file_path, file_id, source_bytes, nodes, edges)
 
         return nodes, edges
+
+    def _make_file_id(self, file_path: Path) -> str:
+        """
+        Compute a file identifier that matches the FILE node id used by the base TreeSitterBuilder.
+
+        Prefer a repo-relative path when a repository root attribute is available
+        on the builder; otherwise, fall back to a normalized path string.
+        """
+        # Try common attribute names that might store the repository root.
+        for attr_name in ("repo_root", "root_dir", "project_root", "root"):
+            root = getattr(self, attr_name, None)
+            if isinstance(root, Path):
+                try:
+                    # If file_path is absolute, relativize it to the root.
+                    if file_path.is_absolute():
+                        return file_path.relative_to(root).as_posix()
+                    # If file_path is already relative, normalize it with respect to root.
+                    return (root / file_path).relative_to(root).as_posix()
+                except ValueError:
+                    # file_path is not under this root; try the next candidate.
+                    continue
+        # Fallback: use a normalized path string.
+        return file_path.as_posix()
 
     def _extract_source_file(
         self,
@@ -79,7 +102,9 @@ class RustBuilder(TreeSitterBuilder):
     ) -> None:
         """Extract top-level items from a Rust source file."""
         for child in root.children:
-            self._extract_item(child, file_path, file_id, source_bytes, nodes, edges, None)
+            self._extract_item(
+                child, file_path, file_id, source_bytes, nodes, edges, None
+            )
 
     def _extract_item(
         self,
@@ -97,41 +122,23 @@ class RustBuilder(TreeSitterBuilder):
                 node, file_path, file_id, source_bytes, nodes, edges, parent_id
             )
         elif node.type == "struct_item":
-            self._extract_struct(
-                node, file_path, file_id, source_bytes, nodes, edges
-            )
+            self._extract_struct(node, file_path, file_id, source_bytes, nodes, edges)
         elif node.type == "enum_item":
-            self._extract_enum(
-                node, file_path, file_id, source_bytes, nodes, edges
-            )
+            self._extract_enum(node, file_path, file_id, source_bytes, nodes, edges)
         elif node.type == "impl_item":
-            self._extract_impl(
-                node, file_path, file_id, source_bytes, nodes, edges
-            )
+            self._extract_impl(node, file_path, file_id, source_bytes, nodes, edges)
         elif node.type == "trait_item":
-            self._extract_trait(
-                node, file_path, file_id, source_bytes, nodes, edges
-            )
+            self._extract_trait(node, file_path, file_id, source_bytes, nodes, edges)
         elif node.type == "static_item":
-            self._extract_static(
-                node, file_path, file_id, source_bytes, nodes
-            )
+            self._extract_static(node, file_path, file_id, source_bytes, nodes)
         elif node.type == "const_item":
-            self._extract_const(
-                node, file_path, file_id, source_bytes, nodes
-            )
+            self._extract_const(node, file_path, file_id, source_bytes, nodes)
         elif node.type == "type_item":
-            self._extract_type_alias(
-                node, file_path, file_id, source_bytes, nodes
-            )
+            self._extract_type_alias(node, file_path, file_id, source_bytes, nodes)
         elif node.type == "mod_item":
-            self._extract_mod(
-                node, file_path, file_id, source_bytes, nodes, edges
-            )
+            self._extract_mod(node, file_path, file_id, source_bytes, nodes, edges)
         elif node.type == "use_declaration":
-            self._extract_use(
-                node, file_id, source_bytes, edges
-            )
+            self._extract_use(node, file_id, source_bytes, edges)
 
     def _get_visibility(self, node: Any, source_bytes: bytes) -> str:
         """Extract visibility modifier from a node."""
@@ -186,11 +193,19 @@ class RustBuilder(TreeSitterBuilder):
 
         # Check for async/unsafe keywords
         is_async = any(
-            c.type == "async" or (c.type == "identifier" and self._get_node_text(c, source_bytes) == "async")
+            c.type == "async"
+            or (
+                c.type == "identifier"
+                and self._get_node_text(c, source_bytes) == "async"
+            )
             for c in node.children
         )
         is_unsafe = any(
-            c.type == "unsafe" or (c.type == "identifier" and self._get_node_text(c, source_bytes) == "unsafe")
+            c.type == "unsafe"
+            or (
+                c.type == "identifier"
+                and self._get_node_text(c, source_bytes) == "unsafe"
+            )
             for c in node.children
         )
 
@@ -201,7 +216,9 @@ class RustBuilder(TreeSitterBuilder):
         return_type = ""
         ret_type_node = self._find_child_by_type(node, "return_type")
         if ret_type_node:
-            return_type = self._get_node_text(ret_type_node, source_bytes).lstrip("->").strip()
+            return_type = (
+                self._get_node_text(ret_type_node, source_bytes).lstrip("->").strip()
+            )
 
         # Check for &mut self
         takes_mut_self = any("& mut self" in p or "&mut self" in p for p in params)
@@ -224,7 +241,9 @@ class RustBuilder(TreeSitterBuilder):
                 "return_type": return_type,
                 "attributes": attributes,
                 "takes_mut_self": takes_mut_self,
-                "source_code": source_code[:5000] if len(source_code) > 5000 else source_code,
+                "source_code": source_code[:5000]
+                if len(source_code) > 5000
+                else source_code,
             },
         )
         nodes.append(func_node)
@@ -387,9 +406,11 @@ class RustBuilder(TreeSitterBuilder):
 
         # Check for trait impl (impl Trait for Type)
         trait_name = ""
-        # In tree-sitter-rust, trait impls have the pattern: impl <trait> for <type>
-        children_types = [c.type for c in node.children]
-        if "for" in [self._get_node_text(c, source_bytes) for c in node.children if c.type == "identifier"]:
+        if "for" in [
+            self._get_node_text(c, source_bytes)
+            for c in node.children
+            if c.type == "identifier"
+        ]:
             # This is a trait impl - the first type_identifier is the trait
             type_ids = [c for c in node.children if c.type == "type_identifier"]
             if len(type_ids) >= 2:

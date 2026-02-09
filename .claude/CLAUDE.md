@@ -87,31 +87,35 @@ tests/                      # 19 test files
 ## Key Components
 
 ### Agents (12 types)
-| Agent | Purpose |
-|-------|---------|
-| SetupAgent | Clone, detect framework, compile |
-| ProfilerAgent | Extract protocol understanding |
-| StateAgent | Find call sequences violating state invariants |
-| QuantAgent | Find inputs violating math/solvency invariants |
-| VerifierAgent | Validate PoC, assess severity |
-| FixerAgent | Generate unified diffs fixing exploits |
-| BlackboxAgent | Unguided exploration, emit Observations |
-| HttpAgent | HTTP protocol testing |
-| GamifiedAgent | Game-theory-based exploitation |
-| InvariantSynthesizerAgent | Convert Observations → Invariants |
-| BucketingAgent | Function categorization |
-| WorkspaceValidationAgent | Import path discovery |
+
+| Agent                     | Purpose                                        |
+| ------------------------- | ---------------------------------------------- |
+| SetupAgent                | Clone, detect framework, compile               |
+| ProfilerAgent             | Extract protocol understanding                 |
+| StateAgent                | Find call sequences violating state invariants |
+| QuantAgent                | Find inputs violating math/solvency invariants |
+| VerifierAgent             | Validate PoC, assess severity                  |
+| FixerAgent                | Generate unified diffs fixing exploits         |
+| BlackboxAgent             | Unguided exploration, emit Observations        |
+| HttpAgent                 | HTTP protocol testing                          |
+| GamifiedAgent             | Game-theory-based exploitation                 |
+| InvariantSynthesizerAgent | Convert Observations → Invariants              |
+| BucketingAgent            | Function categorization                        |
+| WorkspaceValidationAgent  | Import path discovery                          |
 
 ### 4-Layer Adapter System
+
 1. **Tool Adapters** (9) - Compile, run tests, parse output (Foundry, Python, JS, TS+Bun, Cargo, CMake)
 2. **Workspace Adapters** (8) - Provision isolated work directories
-3. **Domain Adapters** (4) - Language-specific semantic understanding (Solidity, Python, JS, C)
+3. **Domain Adapters** (4) - Language-specific semantic understanding (Solidity, Python, JS, C, Rust)
 4. **Builders** (5) - Parse source code into DependencyGraphs
 
 ### Core Data Models (schemas.py)
+
 `MasterContext`, `Invariant`, `ExploitCandidate`, `Verdict`, `Fix`, `Observation`, `ActorMatrix`, `ProtocolManifesto`, `Mission`, `CampaignBrief`
 
 ### Target Anchoring System
+
 - `scope_paths` on agents restricts file access to invariant-relevant files
 - `principle` field on Invariants captures abstract vulnerability patterns
 - `blocked_by_root_cause` / `blocking_invariant_id` on Verdicts for dependency tracking
@@ -119,6 +123,7 @@ tests/                      # 19 test files
 ## Development Notes
 
 ### Setup
+
 ```bash
 make install          # Install all deps + Foundry
 # OR manually:
@@ -126,12 +131,14 @@ uv sync --all-groups
 ```
 
 ### Environment Variables
+
 ```bash
 OPENROUTER_API_KEY=sk-or-v1-...  # OR OPENAI_API_KEY
 MONGO_URI=mongodb://...          # Optional
 ```
 
 ### Common Commands
+
 ```bash
 make test             # Run tests
 make typecheck        # Type checking (ruff/ty)
@@ -141,6 +148,7 @@ python scripts/playground_dispatcher.py --repo-path ./path  # Run dispatcher
 ```
 
 ### Key Settings (src/kai/agents/settings.py)
+
 - `DEFAULT_MAX_TURNS`: 32
 - `VERIFIER_MAX_TURNS`: 16
 - `VALIDATION_MAX_TURNS`: 8

@@ -40,7 +40,7 @@ class DomainAdapter(ABC):
 
     @abstractmethod
     def get_domain_mapping(self) -> Dict[str, str]:
-        """Map generic NodeKinds to domain terms (e.g. 'Contract' --> CONTAINER)."""
+        """Map generic domain terms to NodeKinds (e.g. 'Contract' --> CONTAINER)."""
         pass
 
     @abstractmethod

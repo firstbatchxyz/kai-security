@@ -7,7 +7,7 @@ Provides domain knowledge for Rust security analysis:
 - Trust level patterns (Solana/Anchor program patterns)
 """
 
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
 from .base import DomainAdapter, LensDefinition
 from ..models import Node, NodeKind, EdgeKind
@@ -35,21 +35,16 @@ class RustAdapter(DomainAdapter):
         """Return Rust-specific NodeKind mappings."""
         return {
             "module": "FILE",
-
             "impl": "CONTAINER",
             "struct": "CONTAINER",
-
             "function": "UNIT",
             "method": "UNIT",
-
             "enum": "TYPE_DEF",
             "type_alias": "TYPE_DEF",
-
             # static & const can be MUCH more than just state variables, but this is a starting point for bucketing
             # e.g. we can have const functions
             "static": "VARIABLE",
             "const": "VARIABLE",
-
             "trait": "INTERFACE",
             "macro": "INTERFACE",
         }
@@ -153,7 +148,7 @@ class RustAdapter(DomainAdapter):
         clean_name = name
         for prefix in ("crate::", "self::", "super::"):
             if clean_name.startswith(prefix):
-                clean_name = clean_name[len(prefix):]
+                clean_name = clean_name[len(prefix) :]
 
         # If scope specified, limit search
         valid_parents: Optional[set] = None
@@ -162,7 +157,11 @@ class RustAdapter(DomainAdapter):
 
         # Search by name across all nodes
         for nid, node in context_graph._nodes.items():
-            if node.name == clean_name or nid.endswith(f"::{clean_name}") or nid.endswith(f":{clean_name}"):
+            if (
+                node.name == clean_name
+                or nid.endswith(f"::{clean_name}")
+                or nid.endswith(f":{clean_name}")
+            ):
                 if valid_parents is not None:
                     if node.parent_id not in valid_parents:
                         continue
@@ -469,7 +468,9 @@ For EACH resource acquisition:
         def extract_modifies_state(node: Node, graph: "DependencyGraph") -> bool:
             """Check if function takes &mut self or &mut references."""
             params = node.meta.get("parameters", [])
-            return any("&mut" in str(p) for p in params) or node.meta.get("takes_mut_self", False)
+            return any("&mut" in str(p) for p in params) or node.meta.get(
+                "takes_mut_self", False
+            )
 
         def extract_is_test(node: Node, graph: "DependencyGraph") -> bool:
             """Check if function is a test."""
@@ -482,7 +483,9 @@ For EACH resource acquisition:
             return any(op in code for op in [" + ", " - ", " * ", " / ", " % "])
 
         def _get_var_names_from_edges(
-            node: Node, graph: "DependencyGraph", edge_kind: EdgeKind,
+            node: Node,
+            graph: "DependencyGraph",
+            edge_kind: EdgeKind,
         ) -> List[str]:
             """Get variable names that a function reads/writes via graph edges."""
             var_names: List[str] = []
@@ -495,6 +498,8 @@ For EACH resource acquisition:
                     if var_node and var_node.name:
                         var_names.append(var_node.name)
             except (KeyError, AttributeError):
+                # if the graph structure is incomplete or malformed for this node,
+                # ignore the error and return any variable names collected so far.
                 pass
             return var_names
 
