@@ -31,31 +31,6 @@ class ChatMessage(BaseModel):
     tool_calls: Optional[List[Dict[str, Any]]] = None
 
 
-class Language(str, Enum):
-    SOLIDITY = "solidity"
-    JAVASCRIPT = "javascript"
-    TYPESCRIPT = "typescript"
-    PYTHON = "python"
-    RUST = "rust"
-    CPP = "cpp"
-    C = "c"
-
-
-class Framework(str, Enum):
-    FOUNDRY = "foundry"
-    NODE = "node"
-    CARGO = "cargo"
-    CMAKE = "cmake"
-
-
-class AdapterSelection(BaseModel):
-    """Result of selecting adapters based on detected languages."""
-
-    languages: list[Language] = Field(default_factory=list)
-    frameworks: list[Framework] = Field(default_factory=list)
-    adapters: list[str | None] = Field(default_factory=list)
-    reason: Optional[str] = None
-
 
 class ImportRecipe(BaseModel):
     """
@@ -693,21 +668,6 @@ class ActorMatrixOutput(BaseModel):
 AgentResponse.model_rebuild()
 # Resolve forward reference for Verdict -> Fix
 Verdict.model_rebuild()
-
-
-class AdapterChooserInput(BaseModel):
-    model_name: str
-    use_openai: bool = False
-    available_frameworks: Optional[list[str]] = None
-
-
-class AdapterChooserOutput(BaseModel):
-    choice: Optional[AdapterSelection]
-    raw_response: Optional[str] = None
-    estimated_cost: float = 0.0
-    total_tokens: Dict[str, Any] = Field(default_factory=dict)
-    success: bool
-    error_message: Optional[str] = None
 
 
 # Dispatcher and Campaign Schemas
