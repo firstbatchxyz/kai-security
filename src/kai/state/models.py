@@ -117,6 +117,8 @@ class ExploitRecord:
     poc_code: str | None = None
     test_output: str | None = None
     severity: str | None = None
+    cvss_vector: str | None = None
+    cvss_score: float | None = None
     patch: str | None = None
     test_results: str | None = None
 
@@ -136,6 +138,8 @@ class ExploitRecord:
             "poc_code": self.poc_code,
             "test_output": self.test_output,
             "severity": self.severity,
+            "cvss_vector": self.cvss_vector,
+            "cvss_score": self.cvss_score,
             "patch": self.patch,
             "test_results": self.test_results,
         }
@@ -157,6 +161,8 @@ class ExploitRecord:
             poc_code=data.get("poc_code"),
             test_output=data.get("test_output"),
             severity=data.get("severity"),
+            cvss_vector=data.get("cvss_vector"),
+            cvss_score=data.get("cvss_score"),
             patch=data.get("patch"),
             test_results=data.get("test_results"),
         )
@@ -176,6 +182,8 @@ class FixRecord:
     severity: str
     patch: str
     test_results: str
+    cvss_vector: str = ""
+    cvss_score: float | None = None
     applied: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -189,6 +197,8 @@ class FixRecord:
             "file": self.file,
             "function": self.function,
             "severity": self.severity,
+            "cvss_vector": self.cvss_vector,
+            "cvss_score": self.cvss_score,
             "patch": self.patch,
             "test_results": self.test_results,
             "applied": self.applied,
@@ -206,6 +216,8 @@ class FixRecord:
             file=data["file"],
             function=data["function"],
             severity=data["severity"],
+            cvss_vector=data.get("cvss_vector", ""),
+            cvss_score=data.get("cvss_score"),
             patch=data["patch"],
             test_results=data["test_results"],
             applied=data.get("applied", False),

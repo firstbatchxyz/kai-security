@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 
 from ra.utils.parsing import find_code_blocks, find_final_answer
 
