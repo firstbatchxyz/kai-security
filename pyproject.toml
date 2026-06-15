@@ -8,8 +8,8 @@ build-backend = "uv_build"
 # the dotted distribution name. The bare `kai` name on PyPI is reserved for the
 # future umbrella dispatcher.
 [tool.uv.build-backend]
-module-name = ["kai", "ra"]
 module-root = "src"
+module-name = ["kai", "ra"]
 
 [project]
 name = "kai-security"
