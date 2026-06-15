@@ -1,7 +1,7 @@
 # vulnerable-vault
 
 A tiny, self-contained, **intentionally vulnerable** Solidity project — a
-target you can point `kai audit` at to see the whole pipeline run end to end
+target you can point `kai-security audit` at to see the whole pipeline run end to end
 without a private repo or a large API spend.
 
 > ⚠️ Intentionally insecure. Do not deploy. For authorized demonstration only.
@@ -17,7 +17,7 @@ without a private repo or a large API spend.
 
 ```bash
 # From the kai-security repo root
-uv run kai audit --repo-path examples/vulnerable-vault \
+uv run kai-security audit --repo-path examples/vulnerable-vault \
   --threat-context examples/vulnerable-vault/threat_context.yaml --verbose
 ```
 
@@ -25,11 +25,11 @@ Then look at the results:
 
 ```bash
 # Interactive HTML (findings + the agent's reasoning trace)
-uv run kai view output/state/<run_id> --open
+uv run kai-security view output/state/<run_id> --open
 
 # Or a Markdown report (stdout), or a styled HTML document
-uv run kai report output/state/<run_id>
-uv run kai report output/state/<run_id> --format html -o report.html
+uv run kai-security report output/state/<run_id>
+uv run kai-security report output/state/<run_id> --format html -o report.html
 ```
 
 `<run_id>` is printed during the run and is the directory name under

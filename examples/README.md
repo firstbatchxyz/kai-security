@@ -13,8 +13,8 @@ demonstration only — do not deploy them.
 Quick run (see each example's README for details):
 
 ```bash
-uv run kai audit --repo-path examples/vulnerable-vault --verbose
-uv run kai view output/state/<run_id> --open
+uv run kai-security audit --repo-path examples/vulnerable-vault --verbose
+uv run kai-security view output/state/<run_id> --open
 ```
 
 Running an audit makes real LLM calls, so it needs an API key configured (see

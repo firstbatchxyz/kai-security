@@ -17,12 +17,12 @@ uv sync
 cp .env.example .env          # add OPENROUTER_API_KEY (or OPENAI_API_KEY)
 
 # Audit the bundled, intentionally-vulnerable example target
-uv run kai audit --repo-path examples/vulnerable-vault --verbose
+uv run kai-security audit --repo-path examples/vulnerable-vault --verbose
 
 # Explore the findings + the agent's reasoning in your browser...
-uv run kai view output/state/<run_id> --open
+uv run kai-security view output/state/<run_id> --open
 # ...or print a Markdown report (or a styled HTML one)
-uv run kai report output/state/<run_id>
+uv run kai-security report output/state/<run_id>
 ```
 
 `<run_id>` is printed during the run (the directory created under
@@ -46,7 +46,7 @@ uv sync
 cp .env.example .env
 ```
 
-`uv sync` installs the `kai` command (the distribution is published as
+`uv sync` installs the `kai-security` command (the distribution is published as
 `kai-security`; the command and import package are `kai`).
 
 Common developer commands are available through `make`:
@@ -62,19 +62,19 @@ make run REPO_PATH=/path/to/target
 
 ```bash
 # Audit a repository you're authorized to test (setup → exploit pipeline)
-uv run kai audit --repo-path /path/to/target --verbose
+uv run kai-security audit --repo-path /path/to/target --verbose
 
 # Open a finished run as an interactive HTML report (findings + agent trace)
-uv run kai view output/state/<run_id> --open
+uv run kai-security view output/state/<run_id> --open
 
 # Render a run's findings — Markdown to stdout, or a styled HTML document
-uv run kai report output/state/<run_id>
-uv run kai report output/state/<run_id> --format html -o report.html
+uv run kai-security report output/state/<run_id>
+uv run kai-security report output/state/<run_id> --format html -o report.html
 ```
 
-`kai audit` is the friendly alias for the full pipeline; `kai pipeline` and
-`kai agent` expose the complete interface documented under [Usage](#usage)
-(equivalently `uv run python -m kai.main ...`). Run `kai <command> -h` for
+`kai-security audit` is the friendly alias for the full pipeline; `kai-security pipeline` and
+`kai-security agent` expose the complete interface documented under [Usage](#usage)
+(equivalently `uv run python -m kai.main ...`). Run `kai-security <command> -h` for
 per-command options.
 
 ## Examples
