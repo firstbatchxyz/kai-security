@@ -2,12 +2,17 @@
 requires = ["uv_build>=0.8.17,<0.9.0"]
 build-backend = "uv_build"
 
+# The published distribution is `kai-security`, but the import packages stay
+# `kai` (domain) and `ra` (framework). Ship BOTH — `kai` imports `ra`, so a
+# wheel with only `kai` is broken. Listing them also decouples the wheel from
+# the dotted distribution name. The bare `kai` name on PyPI is reserved for the
+# future umbrella dispatcher.
 [tool.uv.build-backend]
 module-root = "src"
 module-name = ["kai", "ra"]
 
 [project]
-name = "kai"
+name = "kai-security"
 version = "0.1.0"
 description = "Automated vulnerability discovery, verification, and patching using recursive language models."
 readme = "README.md"
@@ -54,6 +59,16 @@ dependencies = [
 Homepage = "https://github.com/firstbatchxyz/kai-security"
 Repository = "https://github.com/firstbatchxyz/kai-security"
 Issues = "https://github.com/firstbatchxyz/kai-security/issues"
+
+[project.scripts]
+kai-security = "kai.cli:main"
+
+# Umbrella contract: register kai-security under the shared `kai.plugins`
+# group so a dispatcher (this CLI today, a dedicated `kai` package later) can
+# offer it as `kai security …`. Sibling tools register their own namespace the
+# same way (e.g. kai-evolve → `evolve`). See docs/umbrella.md.
+[project.entry-points."kai.plugins"]
+security = "kai.cli:main"
 
 [project.optional-dependencies]
 dev = [

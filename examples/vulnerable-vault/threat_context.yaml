@@ -1,0 +1,22 @@
+# Threat context for the vulnerable-vault example.
+# Tells kai who can interact with the contract and what the trust boundaries
+# are, so it ranks an unprivileged-attacker drain above admin-only concerns.
+
+deployment_type: smart-contract
+environment: on-chain
+
+access_roles:
+  - name: anyone
+    trust: none
+    description: "Permissionless caller — any EOA or contract"
+  - name: depositor
+    trust: none
+    description: "An account that has deposited ETH into the vault"
+
+boundaries:
+  - "User input → contract storage (deposit/withdraw accounting)"
+  - "External call to msg.sender during withdraw (reentrancy boundary)"
+
+known_constraints:
+  - "No admin or owner role exists; every function is permissionless"
+  - "ERC-20 tokens passed to sweepToken may be non-reverting (return false)"
