@@ -25,7 +25,7 @@ def _write_run(dir_path: Path) -> None:
 
 def test_help_and_no_args_print_usage(capsys: pytest.CaptureFixture[str]) -> None:
     assert cli.main([]) == 0
-    assert "usage: kai <command>" in capsys.readouterr().out
+    assert "usage: kai-security <command>" in capsys.readouterr().out
     assert cli.main(["--help"]) == 0
     assert "audit" in capsys.readouterr().out
 
