@@ -61,7 +61,7 @@ Repository = "https://github.com/firstbatchxyz/kai-security"
 Issues = "https://github.com/firstbatchxyz/kai-security/issues"
 
 [project.scripts]
-kai = "kai.cli:main"
+kai-security = "kai.cli:main"
 
 # Umbrella contract: register kai-security under the shared `kai.plugins`
 # group so a dispatcher (this CLI today, a dedicated `kai` package later) can

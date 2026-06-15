@@ -32,9 +32,9 @@ _PLUGIN_GROUP = "kai.plugins"
 _BUILTINS = ("audit", "view", "report", "pipeline", "agent")
 
 _USAGE_HEAD = """\
-kai — automated vulnerability discovery, verification, and patching
+kai-security — automated vulnerability discovery, verification, and patching
 
-usage: kai <command> [options]
+usage: kai-security <command> [options]
 
 commands:
   audit <repo>       Analyze a repository for vulnerabilities (setup → exploit)
@@ -45,7 +45,7 @@ commands:
   agent              Run a single agent
 """
 
-_USAGE_TAIL = "\nRun `kai <command> -h` for command-specific options.\n"
+_USAGE_TAIL = "\nRun `kai-security <command> -h` for command-specific options.\n"
 
 
 def _plugins() -> dict[str, EntryPoint]:
@@ -98,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
     if command in plugins:
         return _run_plugin(command, plugins[command], rest)
 
-    sys.stderr.write(f"kai: unknown command {command!r}\n\n")
+    sys.stderr.write(f"kai-security: unknown command {command!r}\n\n")
     sys.stdout.write(_usage(plugins))
     return 2
 
