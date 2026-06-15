@@ -17,9 +17,9 @@ from __future__ import annotations
 import sys
 
 _USAGE = """\
-kai — automated vulnerability discovery, verification, and patching
+kai-security — automated vulnerability discovery, verification, and patching
 
-usage: kai <command> [options]
+usage: kai-security <command> [options]
 
 commands:
   audit <repo>       Analyze a repository for vulnerabilities (setup → exploit)
@@ -29,7 +29,7 @@ commands:
   pipeline           Full pipeline interface (kai audit is the friendly alias)
   agent              Run a single agent
 
-Run `kai <command> -h` for command-specific options.
+Run `kai-security <command> -h` for command-specific options.
 """
 
 
@@ -62,7 +62,7 @@ def main(argv: list[str] | None = None) -> int:
 
         return report_main(rest)
 
-    sys.stderr.write(f"kai: unknown command {command!r}\n\n")
+    sys.stderr.write(f"kai-security: unknown command {command!r}\n\n")
     sys.stdout.write(_USAGE)
     return 2
 

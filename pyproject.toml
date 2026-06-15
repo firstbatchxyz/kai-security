@@ -61,7 +61,7 @@ Repository = "https://github.com/firstbatchxyz/kai-security"
 Issues = "https://github.com/firstbatchxyz/kai-security/issues"
 
 [project.scripts]
-kai = "kai.cli:main"
+kai-security = "kai.cli:main"
 
 [project.optional-dependencies]
 dev = [
