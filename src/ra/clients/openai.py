@@ -12,6 +12,15 @@ import openai
 from dotenv import load_dotenv
 from openai.types.chat import ChatCompletion
 
+# Use Langfuse-wrapped OpenAI client when available for automatic tracing
+_LangfuseOpenAI = None
+_LangfuseAsyncOpenAI = None
+if os.environ.get("LANGFUSE_SECRET_KEY"):
+    try:
+        from langfuse.openai import OpenAI as _LangfuseOpenAI, AsyncOpenAI as _LangfuseAsyncOpenAI
+    except ImportError:
+        pass
+
 from ra.clients.base_lm import BaseLM
 from ra.core.types import ModelUsageSummary, UsageSummary
 
@@ -210,7 +219,8 @@ class OpenAIClient(BaseLM):
         extra_headers = (
             _OPENROUTER_HEADERS if base_url == "https://openrouter.ai/api/v1" else None
         )
-        self.client = openai.OpenAI(
+        _ClientCls = _LangfuseOpenAI or openai.OpenAI
+        self.client = _ClientCls(
             api_key=api_key,
             base_url=base_url,
             default_headers=extra_headers,
@@ -283,7 +293,8 @@ class OpenAIClient(BaseLM):
 
         extra_body = self._build_extra_body()
 
-        async with openai.AsyncOpenAI(
+        _AsyncCls = _LangfuseAsyncOpenAI or openai.AsyncOpenAI
+        async with _AsyncCls(
             **self._async_client_kwargs,
         ) as client:
 
